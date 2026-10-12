@@ -1,0 +1,22 @@
+# Postgres 18 para desarrollo local. Uso: docker compose -f infra/docker-compose.dev.yml up -d
+services:
+  db:
+    image: postgres:18
+    container_name: stenia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: stenia
+      POSTGRES_USER: stenia
+      POSTGRES_PASSWORD: stenia
+    ports:
+      - '5432:5432'
+    volumes:
+      - stenia-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stenia -d stenia']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  stenia-db-data:

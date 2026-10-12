@@ -1,0 +1,44 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "build:migrate": "bun build migrate.mjs --target=node --format=esm --outfile=.next/migrate.bundle.mjs --external pg-native"
+  },
+  "dependencies": {
+    "@stenia/ai": "workspace:*",
+    "@stenia/core": "workspace:*",
+    "@stenia/db": "workspace:*",
+    "@tanstack/react-query": "5.104.2",
+    "better-auth": "1.7.7",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "drizzle-orm": "0.45.4",
+    "lucide-react": "1.55.0",
+    "motion": "14.1.0",
+    "next": "16.4.0",
+    "pg": "8.23.1",
+    "radix-ui": "1.8.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "3.7.0",
+    "zod": "4.6.6",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "postcss": "8.5.29",
+    "server-only": "^0.0.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3"
+  }
+}

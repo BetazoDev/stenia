@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0e0e0e;
+  --color-surface: #141414;
+  --color-surface-2: #161616;
+  --color-card: rgba(255, 255, 255, 0.03);
+  --color-card-hover: rgba(255, 255, 255, 0.05);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-text: #ffffff;
+  --color-text-2: rgba(255, 255, 255, 0.72);
+  --color-text-3: rgba(255, 255, 255, 0.5);
+  --color-accent: #ce0037;
+  --color-accent-hover: #e2003d;
+  --color-up: #3fbf7f;
+  --color-down: #e0a526;
+  --color-protein: #8fa8c8;
+  --color-carbs: #c9a96e;
+  --color-fat: #b38fbf;
+  --color-light-bg: #f6f6f5;
+  --color-light-text: #111111;
+
+  --radius-card: 14px;
+  --radius-input: 10px;
+  --radius-chip: 8px;
+  --radius-pill: 999px;
+
+  --font-display: 'Clash Grotesk', 'Switzer', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Switzer', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --tracking-display: -0.04em;
+  --tracking-label: 0.07em;
+
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1rem;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.5rem;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: var(--tracking-display);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility label {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+@utility safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+}

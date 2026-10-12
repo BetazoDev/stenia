@@ -1,0 +1,32 @@
+# dependencias
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# entorno (nunca secretos en el repo)
+.env
+.env.*
+!.env.example
+
+# pruebas
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# datos descargados por los importadores
+scripts/.cache/
+
+# sistema
+.DS_Store
+*.log
+
+# PGlite local (pnpm db:dev)
+.cache/

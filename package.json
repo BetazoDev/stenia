@@ -1,0 +1,41 @@
+{
+  "name": "stenia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stenia: web app de gimnasio y calistenia con IA. Fuerza que se construye.",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r --parallel --if-present typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "pnpm --filter @stenia/db generate",
+    "db:migrate": "bun run scripts/migrate.ts",
+    "db:seed": "bun run scripts/seed.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:dev": "bun run scripts/dev-db.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.64.0",
+    "@types/node": "26.6.5",
+    "bun": "1.4.3",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  }
+}
