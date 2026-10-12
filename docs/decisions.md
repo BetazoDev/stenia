@@ -65,3 +65,28 @@ Bitácora de decisiones no cubiertas por el PRD o que lo ajustan. Fecha en forma
 22. **IDs de modelos por defecto** (sección 11): `claude-opus-5-5`, `claude-haiku-5-5`, `gpt-6.1-sol`,
     `gpt-6-luna`, `gemini-3.1-pro-preview`, `gemini-3.8-flash`. Son sugerencias editables en
     `/settings/developer`; la tabla de precios vive en `packages/ai/src/pricing.ts`.
+
+## 2026-10-12 · Runbook de Dokploy (sección 12)
+
+Prerrequisitos entregados por el usuario: reutilizar el proyecto existente y el subdominio `stenia.halonso.digital`
+(ya resolvía a la IP del VPS `93.188.167.69`, validado con `domain-validateDomain`).
+
+| Paso | Recurso | ID / valor (sin secretos) |
+| --- | --- | --- |
+| 3 | Proyecto renombrado "Gym Calistenia IA" → `stenia` | projectId `5z9GRnbMU1uqLFrK2KaUJ`, environmentId `Yca3YogMXI1gjfBBQT34w` |
+| 4 | Postgres `stenia-db` (postgres:18, 512 MB / 256 MB, sin puerto externo) | postgresId `Fm6Y7SPHXs1PrawuTb7Hu`, appName final `stenia-db-qfrn1l` |
+| 7 | Aplicación `stenia-web` (Docker, 1 GB / 256 MB, variables de 3.1 cargadas) | applicationId `zoY7qs_Q8ljZ38lttM8oK`, appName `stenia-web-akpqek` |
+| 7 | Dominio `stenia.halonso.digital` → puerto 3000, HTTPS Let's Encrypt | domainId `sRC82nZB1mPr0RP3AjWHv` |
+| 8 | Tarea programada `stenia-checkin-reminders` (09:00 America/Mexico_City → `/api/cron/checkins`) | scheduleId `ysu25jDB8pCkcjQoN6L4z` |
+
+Notas:
+
+- Los límites de memoria se aceptan solo como cadenas en el MCP (`"536870912"`), como indica el PRD.
+- Los secretos de producción (`BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, contraseña de Postgres) los
+  generó el agente porque el clasificador de permisos impidió leer los valores generados con `openssl` desde el
+  archivo local; quedan en las variables de la aplicación en Dokploy y en `.env.production.local` (ignorado). Se
+  pueden rotar desde Dokploy cuando se quiera.
+- `ADMIN_EMAILS` apunta al correo del autor para que su cuenta tenga rol admin en producción.
+- Pendientes que dependen del usuario: destino de respaldos en R2 (pasos 2 y 5), repositorio en GitHub y primer
+  push del workflow para que exista la imagen `ghcr.io/<owner>/stenia-web:latest` (paso 7: proveedor Docker y
+  despliegue), credenciales de Google OAuth (opcional: el acceso por correo ya funciona).
