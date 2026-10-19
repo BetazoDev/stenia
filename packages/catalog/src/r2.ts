@@ -1,19 +1,23 @@
 import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-import { optionalEnv } from './env';
 
 export type Mirror = {
   /** Sube el archivo si no existe y devuelve la URL pública. */
   put(key: string, body: Uint8Array, contentType: string): Promise<string>;
 };
 
+const value = (env: Record<string, string | undefined>, key: string) => {
+  const v = env[key];
+  return v && v.length > 0 ? v : undefined;
+};
+
 /** Espejo de medios en el bucket público de R2. Devuelve null si faltan credenciales (se conservan URLs de origen). */
-export function createR2MirrorFromEnv(): Mirror | null {
-  const accountId = optionalEnv('R2_ACCOUNT_ID');
-  const accessKeyId = optionalEnv('R2_ACCESS_KEY_ID');
-  const secretAccessKey = optionalEnv('R2_SECRET_ACCESS_KEY');
-  const bucket = optionalEnv('R2_BUCKET_PUBLIC');
-  const publicBaseUrl = optionalEnv('R2_PUBLIC_BASE_URL');
+export function createR2MirrorFromEnv(env: Record<string, string | undefined> = process.env): Mirror | null {
+  const accountId = value(env, 'R2_ACCOUNT_ID');
+  const accessKeyId = value(env, 'R2_ACCESS_KEY_ID');
+  const secretAccessKey = value(env, 'R2_SECRET_ACCESS_KEY');
+  const bucket = value(env, 'R2_BUCKET_PUBLIC');
+  const publicBaseUrl = value(env, 'R2_PUBLIC_BASE_URL');
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) return null;
 
   const client = new S3Client({

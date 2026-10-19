@@ -1,8 +1,17 @@
+import { normalizeText } from '@stenia/core';
 import { eq, sql } from 'drizzle-orm';
 import { equipment, exercise, exerciseEquipment, exerciseMedia, exerciseProgression, type Db, type ProgressionThreshold } from '@stenia/db';
 
-import { fetchBytes } from './http';
 import { contentTypeFor, extensionFor, type Mirror } from './r2';
+
+export type FetchBytes = (url: string) => Promise<Uint8Array>;
+
+/** Descarga simple sin caché (la CLI de Bun inyecta una versión con caché en disco). */
+export const defaultFetchBytes: FetchBytes = async (url) => {
+  const response = await fetch(url, { redirect: 'follow' });
+  if (!response.ok) throw new Error(`HTTP ${response.status} al descargar ${url}`);
+  return new Uint8Array(await response.arrayBuffer());
+};
 
 export type ExerciseInput = Omit<typeof exercise.$inferInsert, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -19,6 +28,10 @@ export type ImportOptions = {
   mirror: Mirror | null;
   limit?: number | undefined;
   log?: ((message: string) => void) | undefined;
+  /** Para espejar imágenes en R2. */
+  fetchBytes?: FetchBytes | undefined;
+  /** Avance (procesados, total) para la barra de progreso de la tarea. */
+  onProgress?: ((done: number, total: number) => void | Promise<void>) | undefined;
 };
 
 export type ImportSummary = {
@@ -44,9 +57,10 @@ export async function upsertExercise(
   equipmentIds: Map<string, string>,
   summary: ImportSummary,
 ): Promise<string> {
+  const values = { ...input, searchText: normalizeText(`${input.nameEs} ${input.nameEn}`) };
   const [row] = await db
     .insert(exercise)
-    .values(input)
+    .values(values)
     .onConflictDoUpdate({
       target: exercise.slug,
       set: {
@@ -68,6 +82,7 @@ export async function upsertExercise(
         meta: input.meta,
         license: input.license,
         attributionUrl: input.attributionUrl,
+        searchText: values.searchText,
         updatedAt: new Date(),
       },
     })
@@ -103,7 +118,7 @@ export async function replaceMedia(
     let storageKey: string | null = null;
     if (options.mirror) {
       try {
-        const bytes = await fetchBytes(m.originUrl);
+        const bytes = await (options.fetchBytes ?? defaultFetchBytes)(m.originUrl);
         const contentType = contentTypeFor(m.originUrl);
         storageKey = `exercises/${m.source}/${slug}/${m.role}-${m.sortOrder}.${extensionFor(contentType)}`;
         url = await options.mirror.put(storageKey, bytes, contentType);

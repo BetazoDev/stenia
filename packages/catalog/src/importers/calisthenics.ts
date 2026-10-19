@@ -1,15 +1,15 @@
 import type { Db, ProgressionThreshold } from '@stenia/db';
 import { z } from 'zod';
 
-import { loadEquipmentIds, newSummary, replaceMedia, upsertExercise, upsertProgression, type ImportOptions, type ImportSummary, type MediaInput } from '../lib/catalog';
-import { inferCategory, inferLoadType, inferPattern } from '../lib/classify';
-import { inferCalisthenicsEquipment } from '../lib/equipment-map';
-import { normalizeMuscles } from '../lib/muscles';
-import { slugify } from '../lib/slug';
+import { loadEquipmentIds, newSummary, replaceMedia, upsertExercise, upsertProgression, type ImportOptions, type ImportSummary, type MediaInput } from '../catalog';
+import { inferCategory, inferLoadType, inferPattern } from '../classify';
+import { inferCalisthenicsEquipment } from '../equipment-map';
+import { normalizeMuscles } from '../muscles';
+import { slugify } from '../slug';
 
 export const CALISTHENICS_URL = 'https://huggingface.co/datasets/Martjn/calisthenics_exercises/resolve/main/exercises.jsonl';
 export const CALISTHENICS_ATTRIBUTION = 'https://huggingface.co/datasets/Martjn/calisthenics_exercises';
-export const SOURCE = 'calisthenics';
+const SOURCE = 'calisthenics';
 
 const Link = z.object({
   source: z.string(),
@@ -42,6 +42,18 @@ function thresholdFor(category: string, loadType: string): ProgressionThreshold 
   return { kind: 'reps', value: 12, sessions: 3 };
 }
 
+const ADVANCED_RE = /90.?degree|freestanding|free.?standing|one.?arm|one.?leg(ged)? pull|archer pull|full planche|straddle planche|full front lever|full back lever|human flag|muscle.?up|maltese|iron cross|ring (handstand|muscle)|planche push|handstand push.?up|dragon flag|hefesto|victorian|manna|90 degree|one.?handed/i;
+const INTERMEDIATE_RE = /tuck|advanced tuck|straddle|archer|typewriter|l.?sit|pistol|wall handstand push|pseudo planche|explosive|clap|diamond|decline|dips?\b|pull.?ups?\b|chin.?ups?\b|nordic/i;
+const BEGINNER_RE = /wall|incline|knee|assisted|negative|band|pike|scapula|hang|australian|inverted row|box|elevated|support hold|plank|hollow|glute bridge|squat\b/i;
+
+/** Nivel absoluto por nombre: el índice de la progresión del dataset es relativo a cada fila. */
+export function calisthenicsLevel(name: string, stepIndex: number): 'beginner' | 'intermediate' | 'advanced' {
+  if (ADVANCED_RE.test(name)) return 'advanced';
+  if (INTERMEDIATE_RE.test(name) && !BEGINNER_RE.test(name)) return 'intermediate';
+  if (BEGINNER_RE.test(name)) return 'beginner';
+  return stepIndex === 0 ? 'beginner' : stepIndex === 1 ? 'intermediate' : 'advanced';
+}
+
 export function parseJsonl(text: string): unknown[] {
   return text
     .split('\n')
@@ -63,8 +75,8 @@ export async function importCalisthenics(db: Db, rawRows: unknown[], options: Im
     if (cached) return { id: cached, slug };
     const primaryMuscles = normalizeMuscles(row.primary_muscles);
     const pattern = inferPattern({ name, category: row.category, primaryMuscles });
-    const loadType = inferLoadType({ name, bodyweight: true });
-    const level = levelIndex === 0 ? 'beginner' : levelIndex === 1 ? 'intermediate' : 'advanced';
+    const loadType = inferLoadType({ name, bodyweight: true, equipment: inferCalisthenicsEquipment(name, row.category) });
+    const level = calisthenicsLevel(name, levelIndex);
     const id = await upsertExercise(
       db,
       {
@@ -95,12 +107,14 @@ export async function importCalisthenics(db: Db, rawRows: unknown[], options: Im
     return { id, slug };
   };
 
+  let done = 0;
   for (const row of subset) {
     const steps = [row.progression_1, row.progression_2, row.progression_3];
     const baseIndex = Math.max(0, steps.findIndex((s) => s.toLowerCase() === row.name.toLowerCase()));
     const base = await ensureExercise(row.name, row, true, baseIndex);
 
-    const images = row.links.filter((l) => l.type === 'image' && l.license && ALLOWED_LICENSES.has(l.license));
+    // Solo HTTPS: una imagen http:// se bloquea como contenido mixto en la app.
+  const images = row.links.filter((l) => l.type === 'image' && l.url.startsWith('https://') && l.license && ALLOWED_LICENSES.has(l.license));
     const media: MediaInput[] = images.slice(0, 2).map((link, index) => ({
       role: index === 0 ? 'start' : 'end',
       originUrl: link.url,
@@ -116,7 +130,7 @@ export async function importCalisthenics(db: Db, rawRows: unknown[], options: Im
       const isBase = name.toLowerCase() === row.name.toLowerCase();
       chain.push(isBase ? base : await ensureExercise(name, row, false, index));
     }
-    const loadType = inferLoadType({ name: row.name, bodyweight: true });
+    const loadType = inferLoadType({ name: row.name, bodyweight: true, equipment: inferCalisthenicsEquipment(row.name, row.category) });
     const threshold = thresholdFor(row.category, loadType);
     for (let i = 0; i < chain.length - 1; i += 1) {
       const from = chain[i];
@@ -124,6 +138,8 @@ export async function importCalisthenics(db: Db, rawRows: unknown[], options: Im
       if (from && to) await upsertProgression(db, from.id, to.id, threshold, SOURCE, summary);
     }
     options.log?.(`  ${SOURCE}: ${row.name}`);
+    done += 1;
+    await options.onProgress?.(done, subset.length);
   }
   return summary;
 }

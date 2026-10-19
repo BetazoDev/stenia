@@ -1,4 +1,4 @@
-import { integer, jsonb, pgEnum, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { date, integer, jsonb, pgEnum, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, updatedAt } from './_shared';
 import { user } from './auth';
@@ -17,6 +17,11 @@ export const routine = pgTable('routine', {
   name: text('name').notNull(),
   status: routineStatus('status').notNull().default('draft'),
   currentVersionId: text('current_version_id'),
+  /** Inicio del bloque actual ("Semana X de Y"). */
+  startedOn: date('started_on'),
+  blockWeeks: integer('block_weeks').notNull().default(8),
+  /** Semana de descarga cada N semanas (4–8). */
+  deloadEveryWeeks: integer('deload_every_weeks').notNull().default(6),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

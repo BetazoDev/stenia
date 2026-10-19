@@ -3,6 +3,7 @@ packages:
   - packages/*
   - scripts
 allowBuilds:
+  '@swc/core': true
   bun: true
   esbuild: true
   unrs-resolver: true

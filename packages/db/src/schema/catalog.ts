@@ -1,6 +1,7 @@
 import { boolean, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, updatedAt } from './_shared';
+import { user } from './auth';
 import { equipment } from './equipment';
 
 export const loadType = pgEnum('load_type', ['external', 'bodyweight', 'assisted', 'weighted_bw', 'isometric']);
@@ -39,6 +40,10 @@ export const exercise = pgTable(
     /** Las traducciones hechas por LLM quedan en false hasta revisión humana. */
     reviewed: boolean('reviewed').notNull().default(false),
     active: boolean('active').notNull().default(true),
+    /** ID de un video de YouTube curado a mano (se muestra con youtube-nocookie.com). */
+    videoId: text('video_id'),
+    /** Nombres es/en normalizados (minúsculas, sin acentos) para la búsqueda. */
+    searchText: text('search_text').notNull().default(''),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -105,4 +110,23 @@ export const exerciseMedia = pgTable(
     attributionUrl: text('attribution_url').notNull(),
   },
   (t) => [index('exercise_media_exercise_id_idx').on(t.exerciseId)],
+);
+
+/** Recomendación personalizada del LLM para un ejercicio (generada una vez y cacheada). */
+export const exerciseTip = pgTable(
+  'exercise_tip',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    exerciseId: text('exercise_id')
+      .notNull()
+      .references(() => exercise.id, { onDelete: 'cascade' }),
+    text: text('text').notNull(),
+    model: text('model').notNull(),
+    promptVersion: integer('prompt_version').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('exercise_tip_user_exercise_idx').on(t.userId, t.exerciseId)],
 );

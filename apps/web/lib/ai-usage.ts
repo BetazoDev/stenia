@@ -19,13 +19,13 @@ export type RecordUsageInput = {
 };
 
 /** Registra tokens y costo estimado de cada llamada al LLM (tabla `ai_usage`). */
-export async function recordAiUsage(input: RecordUsageInput): Promise<void> {
+export async function recordAiUsage(input: RecordUsageInput): Promise<string | null> {
   const cost = estimateCostUsd(input.model, {
     inputTokens: input.inputTokens,
     outputTokens: input.outputTokens,
     cachedInputTokens: input.cachedInputTokens ?? 0,
   });
-  await getDb().insert(aiUsage).values({
+  const [row] = await getDb().insert(aiUsage).values({
     userId: input.userId,
     task: input.task,
     provider: input.provider,
@@ -38,5 +38,6 @@ export async function recordAiUsage(input: RecordUsageInput): Promise<void> {
     latencyMs: input.latencyMs,
     ok: input.ok,
     error: input.error ?? null,
-  });
+  }).returning({ id: aiUsage.id });
+  return row?.id ?? null;
 }

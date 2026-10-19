@@ -1,17 +1,17 @@
 import type { Db } from '@stenia/db';
 import { z } from 'zod';
 
-import { loadEquipmentIds, newSummary, replaceMedia, upsertExercise, type ImportOptions, type ImportSummary, type MediaInput } from '../lib/catalog';
-import { inferCategory, inferLoadType, inferPattern, normalizeLevel } from '../lib/classify';
-import { mapRepDbEquipment } from '../lib/equipment-map';
-import { normalizeMuscles } from '../lib/muscles';
-import { slugify } from '../lib/slug';
+import { loadEquipmentIds, newSummary, replaceMedia, upsertExercise, type ImportOptions, type ImportSummary, type MediaInput } from '../catalog';
+import { inferCategory, inferLoadType, inferPattern, normalizeLevel } from '../classify';
+import { mapRepDbEquipment } from '../equipment-map';
+import { normalizeMuscles } from '../muscles';
+import { slugify } from '../slug';
 
 export const REPDB_URL = 'https://raw.githubusercontent.com/RepDB/exercise-dataset/main/exercises.json';
 export const REPDB_IMAGE_BASE = 'https://raw.githubusercontent.com/RepDB/exercise-dataset/main/';
 export const REPDB_ATTRIBUTION = 'https://repdb.co';
 export const REPDB_LICENSE = 'RepDB Free (atribución visible obligatoria; sin redistribución)';
-export const SOURCE = 'repdb';
+const SOURCE = 'repdb';
 
 export const RepDbRow = z.object({
   id: z.string(),
@@ -53,14 +53,15 @@ export async function importRepDb(db: Db, rawRows: unknown[], options: ImportOpt
   const rows = rawRows.map((r) => RepDbRow.parse(r));
   const subset = options.limit ? rows.slice(0, options.limit) : rows;
 
+  let done = 0;
   for (const row of subset) {
     const slug = `rep-${slugify(row.id)}`;
     const bodyweight = row.is_bodyweight === true || (!row.equipment && row.tags.includes('bodyweight'));
     const primaryMuscles = normalizeMuscles(row.primary_muscles);
     const category = row.tags.includes('calisthenics') && !row.equipment ? 'skill' : row.category;
     const pattern = inferPattern({ name: row.name_en, mechanic: row.mechanic, category, primaryMuscles });
-    const loadType = inferLoadType({ name: row.name_en, bodyweight, force: row.force_type });
     const equipmentSlugs = mapRepDbEquipment(row.equipment, row.name_en);
+    const loadType = inferLoadType({ name: row.name_en, bodyweight, force: row.force_type, equipment: equipmentSlugs });
 
     const id = await upsertExercise(
       db,
@@ -69,7 +70,7 @@ export async function importRepDb(db: Db, rawRows: unknown[], options: ImportOpt
         nameEs: row.name_es?.trim() || row.name_en,
         nameEn: row.name_en,
         pattern,
-        category: inferCategory({ loadType, pattern, bodyweight }),
+        category: inferCategory({ loadType, pattern, bodyweight: loadType !== 'external' }),
         primaryMuscles,
         secondaryMuscles: normalizeMuscles(row.secondary_muscles),
         loadType,
@@ -107,6 +108,8 @@ export async function importRepDb(db: Db, rawRows: unknown[], options: ImportOpt
     if (flat?.main) media.push({ role: 'main', originUrl: REPDB_IMAGE_BASE + flat.main, source: SOURCE, license: REPDB_LICENSE, attributionUrl: REPDB_ATTRIBUTION, sortOrder: 0 });
     await replaceMedia(db, id, slug, media, options, summary);
     options.log?.(`  ${SOURCE}: ${row.name_en}`);
+    done += 1;
+    await options.onProgress?.(done, subset.length);
   }
   return summary;
 }

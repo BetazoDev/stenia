@@ -1,9 +1,31 @@
-import { boolean, doublePrecision, index, integer, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, tz, updatedAt } from './_shared';
 import { user } from './auth';
 import { exercise } from './catalog';
+import { gymProfile } from './equipment';
 import { routineDay, routineExercise, routineVersion } from './plan';
+
+export const sessionStatus = pgEnum('session_status', ['active', 'completed', 'discarded']);
+
+export type SessionSummary = {
+  durationSec: number;
+  volumeKg: number;
+  completedSets: number;
+  avgRestSec: number | null;
+  records: { exerciseId: string; type: string; value: number }[];
+  exercises: { exerciseId: string; durationSec: number; volumeKg: number; sets: number }[];
+  previous?: { volumeKg: number; durationSec: number; avgRestSec: number | null } | null;
+};
+
+export type SetTargetJson = {
+  weightKg?: number | null;
+  assistanceKg?: number | null;
+  addedWeightKg?: number | null;
+  repMin?: number | null;
+  repMax?: number | null;
+  seconds?: number | null;
+};
 
 /** Sesión de entrenamiento (en el PRD `session`; renombrada porque Better Auth usa `session`). */
 export const workoutSession = pgTable(
@@ -15,11 +37,17 @@ export const workoutSession = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     routineVersionId: text('routine_version_id').references(() => routineVersion.id, { onDelete: 'set null' }),
     routineDayId: text('routine_day_id').references(() => routineDay.id, { onDelete: 'set null' }),
+    gymProfileId: text('gym_profile_id').references(() => gymProfile.id, { onDelete: 'set null' }),
+    status: sessionStatus('status').notNull().default('active'),
     startedAt: tz('started_at').notNull(),
     endedAt: tz('ended_at'),
     pausedMs: integer('paused_ms').notNull().default(0),
+    pausedAt: tz('paused_at'),
     effort: integer('effort'),
     notes: text('notes'),
+    summary: jsonb('summary').$type<SessionSummary | null>(),
+    /** Marca del cliente para resolver la sincronización (gana la más reciente). */
+    clientUpdatedAt: tz('client_updated_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -33,6 +61,9 @@ export const sessionExercise = pgTable(
     sessionId: text('session_id')
       .notNull()
       .references(() => workoutSession.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
     routineExerciseId: text('routine_exercise_id').references(() => routineExercise.id, { onDelete: 'set null' }),
     exerciseId: text('exercise_id')
       .notNull()
@@ -43,6 +74,8 @@ export const sessionExercise = pgTable(
     substitutedFromExerciseId: text('substituted_from_exercise_id').references(() => exercise.id, {
       onDelete: 'set null',
     }),
+    notes: text('notes'),
+    clientUpdatedAt: tz('client_updated_at'),
   },
   (t) => [index('session_exercise_session_id_idx').on(t.sessionId)],
 );
@@ -64,7 +97,12 @@ export const setLog = pgTable(
     reps: integer('reps'),
     seconds: integer('seconds'),
     rir: integer('rir'),
+    target: jsonb('target').$type<SetTargetJson | null>(),
+    startedAt: tz('started_at'),
     completedAt: tz('completed_at'),
+    /** Dolor reportado en la serie: sugiere detener, sustituir y abre una revisión adelantada. */
+    pain: boolean('pain').notNull().default(false),
+    clientUpdatedAt: tz('client_updated_at'),
     restActualSeconds: integer('rest_actual_seconds'),
     restTargetSeconds: integer('rest_target_seconds'),
     isRecord: boolean('is_record').notNull().default(false),

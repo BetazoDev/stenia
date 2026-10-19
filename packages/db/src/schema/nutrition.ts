@@ -1,4 +1,6 @@
-import { date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
+
+import { boolean } from 'drizzle-orm/pg-core';
 
 import { createdAt, id } from './_shared';
 import { user } from './auth';
@@ -24,6 +26,12 @@ export const food = pgTable(
     fatG: doublePrecision('fat_g').notNull(),
     fiberG: doublePrecision('fiber_g'),
     portions: jsonb('portions').$type<FoodPortion[]>().notNull().default([]),
+    /** Grupo del sistema de equivalentes (protein, cereal, fruit, vegetable, fat, dairy, legume, sugar, free). */
+    groupCode: text('group_code'),
+    /** Nombres normalizados (minúsculas, sin acentos) para la búsqueda. */
+    searchText: text('search_text').notNull().default(''),
+    /** La traducción al español fue revisada por una persona. */
+    nameReviewed: boolean('name_reviewed').notNull().default(false),
     license: text('license'),
     attributionUrl: text('attribution_url'),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
@@ -58,6 +66,9 @@ export const mealPlan = pgTable('meal_plan', {
   weekStart: date('week_start').notNull(),
   plan: jsonb('plan').$type<Record<string, unknown>>().notNull(),
   version: integer('version').notNull().default(1),
+  /** active | archived */
+  status: text('status').notNull().default('active'),
+  targetId: text('target_id'),
   createdAt: createdAt(),
 });
 
@@ -78,3 +89,29 @@ export const mealLog = pgTable(
   },
   (t) => [index('meal_log_user_date_idx').on(t.userId, t.date)],
 );
+
+export const foodFavorite = pgTable(
+  'food_favorite',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    foodId: text('food_id')
+      .notNull()
+      .references(() => food.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.foodId] })],
+);
+
+export type SavedMealItem = { foodId: string; grams: number };
+
+export const savedMeal = pgTable('saved_meal', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  items: jsonb('items').$type<SavedMealItem[]>().notNull().default([]),
+  createdAt: createdAt(),
+});

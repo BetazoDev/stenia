@@ -1,4 +1,4 @@
-import { date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, tz, updatedAt } from './_shared';
 import { user } from './auth';
@@ -27,6 +27,9 @@ export const bodyMeasurement = pgTable(
     leanMassKg: doublePrecision('lean_mass_kg'),
     bmrMeasured: integer('bmr_measured'),
     source: text('source').notNull().default('manual'),
+    /** Estimación aproximada (p. ej. % grasa por foto): nunca se usa para decisiones automáticas. */
+    approximate: boolean('approximate').notNull().default(false),
+    raw: jsonb('raw').$type<Record<string, unknown> | null>(),
     notes: text('notes'),
     createdAt: createdAt(),
   },
@@ -41,6 +44,10 @@ export const bodyPhoto = pgTable('body_photo', {
   takenAt: tz('taken_at').notNull(),
   pose: photoPose('pose').notNull(),
   storageKey: text('storage_key').notNull(),
+  /** r2 | db */
+  storageDriver: text('storage_driver').notNull().default('db'),
+  contentType: text('content_type').notNull().default('image/jpeg'),
+  sizeBytes: integer('size_bytes').notNull().default(0),
   landmarks: jsonb('landmarks').$type<Record<string, unknown> | null>(),
   createdAt: createdAt(),
 });
@@ -60,6 +67,9 @@ export const checkin = pgTable(
     aiSummary: text('ai_summary'),
     proposedChanges: jsonb('proposed_changes').$type<unknown[]>().notNull().default([]),
     decision: jsonb('decision').$type<Record<string, unknown>>().notNull().default({}),
+    /** Tendencias calculadas por el código al completar la revisión. */
+    metrics: jsonb('metrics').$type<Record<string, unknown>>().notNull().default({}),
+    dismissedAt: tz('dismissed_at'),
     createdAt: createdAt(),
   },
   (t) => [index('checkin_user_scheduled_idx').on(t.userId, t.scheduledFor)],
