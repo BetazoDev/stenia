@@ -139,9 +139,13 @@ El usuario decide no usar el Dokploy de Hemeron (216.238.95.246) para no consumi
 la instancia anterior (93.188.167.69), donde ya están el proyecto `stenia`, la Postgres desplegada, la aplicación,
 el dominio y la tarea programada (IDs en la sección del 2026-10-12). Consecuencias:
 
-- Los recursos creados el 2026-10-19 en el Dokploy de Hemeron (proyecto `3vCVIAFBNtoDHESIdQLeE` y lo que contiene)
-  quedan sin uso y sin desplegar; se borran solo con aprobación explícita del usuario.
+- Los recursos creados el 2026-10-19 en el Dokploy de Hemeron (tarea, dominio, aplicación, Postgres y el proyecto
+  `3vCVIAFBNtoDHESIdQLeE`) se **borraron** el mismo día con aprobación explícita del usuario. Nunca se desplegaron;
+  los otros 10 proyectos de esa instancia no cambiaron de estado.
 - Se conservan el repo privado `BetazoDev/stenia`, la corrección del workflow y los buckets R2 (cuenta de Cloudflare
   de Hemeron), que sirven igual para el servidor anterior.
 - El MCP de Dokploy debe volver a apuntar a la instancia anterior para continuar el runbook.
+- Primer push a `BetazoDev/stenia` hecho con la credencial de `gh` solo para ese comando
+  (`credential.helper=!gh auth git-credential`), porque el llavero de macOS guarda un token sin scope `workflow`.
+  Para pushes futuros sin ese parámetro: `gh auth setup-git`.
 - `.env.production.local` vuelve a tener como principales los secretos del servidor anterior.
