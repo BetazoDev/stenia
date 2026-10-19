@@ -1,7 +1,12 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   bodyMeasurement,
+  bodyPhoto,
   checkin,
+  food,
+  foodFavorite,
+  mealPlan,
+  savedMeal,
   gymProfile,
   injury,
   mealLog,
@@ -49,7 +54,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const [profiles, screenings, injuries, gyms, routines, sessions, records, measurements, checkins, targets, meals] =
+  const [profiles, screenings, injuries, gyms, routines, sessions, records, measurements, checkins, targets, meals, plans, favorites, saved, photos, customFoods] =
     await Promise.all([
       db.select().from(profile).where(eq(profile.userId, userId)),
       db.select().from(screening).where(eq(screening.userId, userId)),
@@ -62,7 +67,23 @@ export async function GET(request: NextRequest) {
       db.select().from(checkin).where(eq(checkin.userId, userId)),
       db.select().from(nutritionTarget).where(eq(nutritionTarget.userId, userId)),
       db.select().from(mealLog).where(eq(mealLog.userId, userId)),
+      db.select().from(mealPlan).where(eq(mealPlan.userId, userId)),
+      db.select().from(foodFavorite).where(eq(foodFavorite.userId, userId)),
+      db.select().from(savedMeal).where(eq(savedMeal.userId, userId)),
+      db
+        .select({ id: bodyPhoto.id, takenAt: bodyPhoto.takenAt, pose: bodyPhoto.pose, storageDriver: bodyPhoto.storageDriver, sizeBytes: bodyPhoto.sizeBytes })
+        .from(bodyPhoto)
+        .where(eq(bodyPhoto.userId, userId)),
+      db.select().from(food).where(and(eq(food.userId, userId), eq(food.source, 'custom'))),
     ]);
+  // Productos de Open Food Facts usados por la persona: van aparte por su licencia (ODbL), sin mezclarse.
+  const offIds = [...new Set(meals.map((m) => m.foodId))];
+  const offProducts = offIds.length
+    ? await db
+        .select({ id: food.id, barcode: food.barcode, name: food.nameEs, brand: food.brand, kcal: food.kcal, proteinG: food.proteinG, carbsG: food.carbsG, fatG: food.fatG, url: food.attributionUrl })
+        .from(food)
+        .where(and(eq(food.source, 'off'), inArray(food.id, offIds)))
+    : [];
 
   const payload = {
     exportedAt: new Date().toISOString(),
@@ -79,6 +100,15 @@ export async function GET(request: NextRequest) {
     checkins,
     nutritionTargets: targets,
     mealLogs: meals,
+    mealPlans: plans,
+    foodFavorites: favorites,
+    savedMeals: saved,
+    customFoods,
+    bodyPhotos: { note: 'Solo metadatos; las imágenes se descargan desde Progreso › Fotos.', items: photos },
+    openFoodFacts: {
+      license: 'Open Database License (ODbL) · © colaboradores de Open Food Facts · https://world.openfoodfacts.org',
+      products: offProducts,
+    },
   };
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {

@@ -32,6 +32,8 @@ export const food = pgTable(
     searchText: text('search_text').notNull().default(''),
     /** La traducción al español fue revisada por una persona. */
     nameReviewed: boolean('name_reviewed').notNull().default(false),
+    /** Etiquetas del plan determinista: breakfast, main, snack, cook, cost:1–3, role:… (solo alimentos básicos). */
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
     license: text('license'),
     attributionUrl: text('attribution_url'),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),

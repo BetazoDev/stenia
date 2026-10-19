@@ -1,7 +1,24 @@
 #!/usr/bin/env bun
 /**
- * Importador de alimentos (USDA FoodData Central e INCMNSZ). Corresponde a la Fase 3 del PRD;
- * se implementa cuando se confirmen los términos de uso de la tabla del INCMNSZ.
+ * Importa los alimentos de USDA FoodData Central (archivo compacto versionado en
+ * packages/catalog/data/usda-foods.json) a Postgres. Para regenerar ese archivo: scripts/build-foods.ts.
+ * La tabla del INCMNSZ queda fuera hasta confirmar su licencia (docs/decisions.md).
+ *
+ * Uso: bun run scripts/import-foods.ts
  */
-console.error('El importador de alimentos se implementa en la Fase 3 (sección 17 del PRD).');
-process.exit(1);
+import { importUsdaFoods } from '@stenia/catalog';
+
+import { openDb } from './lib/db';
+
+const { db, pool } = openDb();
+try {
+  const started = Date.now();
+  const result = await importUsdaFoods(db, {
+    onProgress: (done, total) => {
+      if (done === total || done % 2000 === 0) console.info(`Alimentos: ${done}/${total}`);
+    },
+  });
+  console.info(`Listo: ${result.foods} alimentos en ${Math.round((Date.now() - started) / 1000)} s.`);
+} finally {
+  await pool.end();
+}

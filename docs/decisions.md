@@ -196,3 +196,33 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
   `meta.source = 'checkin'`; la descarga aceptada activa −10 % y una serie menos durante 7 días en el motor de
   progresión; los ajustes de calorías quedan en `checkin.decision` para Nutrición (tope ±500 kcal acumulado).
 - Escala de las respuestas 1–5 (energía, sueño, esfuerzo, valoración del plan); el esfuerzo de sesión sigue en 1–10.
+
+## 2026-10-19 · Fase 3: nutrición
+
+- **Datos USDA versionados.** `scripts/build-foods.ts` descarga SR Legacy (2018-04) y Foundation Foods (2026-04-30),
+  descarta alimentos para bebé y la categoría de comidas de pueblos originarios de Alaska, deduplica por descripción
+  (prefiere Foundation) y escribe `packages/catalog/data/usda-foods.json` (≈7,600 alimentos, 1.5 MB, 320 KB en gzip).
+  La app lo importa sola la primera vez que se usa Nutrición, y desde Configuración de desarrollador.
+- **Nombres en español.** 134 básicos de la dieta mexicana con nombre, porciones caseras y etiquetas revisadas
+  (`staples.ts`); el resto pasa por un glosario determinista (frases y palabras) y puede refinarse con IA desde
+  Configuración de desarrollador (marca `name:ai`; una reimportación no pisa esos nombres).
+- **INCMNSZ fuera** hasta confirmar su licencia, como indica el PRD.
+- **Metas.** Mifflin-St Jeor × actividad; Katch-McArdle si hay % de grasa (incluida la Marina); TMB medida si existe;
+  gasto adaptativo con ≥ 14 días de registro de al menos 800 kcal y la tendencia de peso (EMA). Objetivos: −20 %
+  pérdida (limitado por el ritmo máximo, 0.75 %/semana por defecto), −10 % recomposición, +10 % hipertrofia, +5 %
+  fuerza. Piso: el mayor entre 1,200/1,500 kcal (o el configurado) y 95 % de la TMB. Proteína ISSN: 2.3 g/kg en
+  déficit, 1.8 en hipertrofia y fuerza; con IMC > 30 se usa el peso a IMC 27. Grasa ≥ 25 % y ≥ 0.6 g/kg.
+  Los ajustes de calorías aceptados en revisiones suman (tope ±500) en las últimas 12 semanas, o 2 con gasto adaptativo.
+- **Salvaguardas.** Embarazo, lactancia, diabetes, enfermedad renal o historial de TCA bloquean metas y planes y
+  muestran derivación a un profesional; el resto de la app sigue disponible.
+- **Plan.** El LLM propone 4 días con códigos F (básicos, favoritos y recientes, sin excluidos); si no hay IA, plantilla
+  determinista por comida con rotación, presupuesto y «no cocina». El servidor escala porciones por día (proteína
+  primero, luego kcal con topes por grupo: fruta 250 g, verdura 300 g, grasa 45 g…) hasta ±5 % de kcal, y repite
+  días hasta completar la semana. Vista en gramos o equivalentes (SMAE redondeado), sustituciones del mismo grupo
+  que conservan proteína o kcal, y lista de compras con unidades contables.
+- **Código de barras.** BarcodeDetector nativo o el polyfill `barcode-detector` (zxing-wasm); siempre hay captura
+  manual. Open Food Facts v2 con user-agent propio; los productos se guardan con `source = 'off'`, licencia ODbL y
+  enlace, y la exportación los entrega en una sección aparte.
+- **Ejercicios en español.** free-exercise-db y calistenia traen nombres en inglés; un glosario determinista
+  (equipo al final, concordancia de género) los traduce al importar y con una tarea de administración. RepDB conserva
+  sus nombres revisados.

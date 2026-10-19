@@ -32,6 +32,7 @@ pnpm lint && pnpm typecheck && pnpm test
 apps/web            Next.js 16 (App Router, Server Actions, Route Handlers), salida standalone, PWA
 packages/core       esquemas zod compartidos, formateadores, motor de progresión, cálculos nutricionales
 packages/db         esquema Drizzle (src/schema), migraciones (drizzle/), semillas, helper PGlite para pruebas
+packages/catalog    importadores de ejercicios y alimentos (USDA), glosarios es-MX, datos versionados (data/)
 packages/ai         proveedores (Vercel AI SDK), cifrado de la key, precios y costo, prompts versionados
 scripts/            importadores Bun (free-exercise-db, calistenia, RepDB), semillas, migrador
 infra/              Dockerfile y docker-compose.dev.yml
@@ -53,6 +54,8 @@ docs/despliegue-manual.md  guía para desplegar desde la interfaz de Dokploy
 | `pnpm db:seed` | Siembra el catálogo de equipamiento |
 | `pnpm db:dev` | Postgres local sin Docker (PGlite por socket, datos en `.cache/pglite`) |
 | `bun run scripts/import-exercises.ts` | Importa catálogos y espeja imágenes en R2 (`--no-mirror` sin R2) |
+| `bun run scripts/import-foods.ts` | Importa los alimentos USDA del archivo versionado (la app también lo hace sola) |
+| `bun run scripts/build-foods.ts` | Regenera `packages/catalog/data/usda-foods.json` desde USDA (necesita `unzip`) |
 
 ## Desarrollo local
 

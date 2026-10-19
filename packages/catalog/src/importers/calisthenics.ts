@@ -6,6 +6,7 @@ import { inferCategory, inferLoadType, inferPattern } from '../classify';
 import { inferCalisthenicsEquipment } from '../equipment-map';
 import { normalizeMuscles } from '../muscles';
 import { slugify } from '../slug';
+import { translateExerciseName } from '../translate-exercise';
 
 export const CALISTHENICS_URL = 'https://huggingface.co/datasets/Martjn/calisthenics_exercises/resolve/main/exercises.jsonl';
 export const CALISTHENICS_ATTRIBUTION = 'https://huggingface.co/datasets/Martjn/calisthenics_exercises';
@@ -81,7 +82,7 @@ export async function importCalisthenics(db: Db, rawRows: unknown[], options: Im
       db,
       {
         slug,
-        nameEs: name,
+        nameEs: translateExerciseName(name),
         nameEn: name,
         pattern,
         category: inferCategory({ loadType, pattern, bodyweight: true }),

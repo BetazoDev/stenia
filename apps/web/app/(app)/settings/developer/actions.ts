@@ -115,3 +115,15 @@ export async function testConnectionAction(rawTask: unknown): Promise<Connection
   revalidatePath('/settings/developer');
   return result;
 }
+
+const JobTypeInput = z.enum(['import_foods', 'import_exercises', 'translate_exercises_glossary', 'translate_exercises_ai', 'translate_foods_ai']);
+
+export async function startJobAction(type: string): Promise<ActionResult> {
+  const session = await requireAdmin();
+  const parsed = JobTypeInput.safeParse(type);
+  if (!parsed.success) return { ok: false, message: 'Tarea desconocida.' };
+  const { startJob } = await import('@/lib/jobs');
+  const result = await startJob(parsed.data, session.user.id);
+  revalidatePath('/settings/developer');
+  return result.ok ? { ok: true } : { ok: false, message: result.message };
+}

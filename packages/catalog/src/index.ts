@@ -9,3 +9,5 @@ export * from './importers/free-exercise-db';
 export * from './importers/calisthenics';
 export * from './importers/repdb';
 export * from './import-all';
+export * from './foods/index';
+export * from './translate-exercise';

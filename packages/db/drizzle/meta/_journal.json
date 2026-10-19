@@ -15,6 +15,13 @@
       "when": 1792394094032,
       "tag": "0001_fases_1_4",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792424692250,
+      "tag": "0002_alimentos_tags",
+      "breakpoints": true
     }
   ]
 }

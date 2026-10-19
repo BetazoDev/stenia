@@ -34,7 +34,7 @@ loadRootEnv();
 const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: repoRoot,
-  transpilePackages: ['@stenia/core', '@stenia/db', '@stenia/ai'],
+  transpilePackages: ['@stenia/core', '@stenia/db', '@stenia/ai', '@stenia/catalog'],
   serverExternalPackages: ['pg'],
   typedRoutes: true,
   poweredByHeader: false,

@@ -25,6 +25,21 @@ const SOURCES = [
     note: 'Imágenes de respaldo con licencia CC-BY-SA.',
   },
   {
+    name: 'USDA FoodData Central',
+    url: 'https://fdc.nal.usda.gov',
+    note: 'Valores nutrimentales de SR Legacy (2018) y Foundation Foods (2026). Dominio público (CC0). Nombres en español: glosario propio y revisión.',
+  },
+  {
+    name: 'Open Food Facts',
+    url: 'https://world.openfoodfacts.org',
+    note: 'Productos por código de barras. Open Database License (ODbL); © colaboradores de Open Food Facts. Estos datos se guardan y exportan por separado.',
+  },
+  {
+    name: 'MediaPipe',
+    url: 'https://ai.google.dev/edge/mediapipe',
+    note: 'Detección de pose en el dispositivo para fotos guiadas y conteo de repeticiones (Apache-2.0).',
+  },
+  {
     name: 'Fontshare',
     url: 'https://www.fontshare.com',
     note: 'Tipografías Clash Grotesk y Switzer.',

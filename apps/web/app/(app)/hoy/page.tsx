@@ -13,8 +13,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Metric } from '@/components/ui/metric';
 import { ensureScheduledCheckins, pendingCheckins } from '@/lib/checkins';
 import { TRIGGER_LABELS_ES, type EarlyTrigger } from '@/lib/checkins-trigger';
-import { blockWeek } from '@/lib/dates';
+import { blockWeek, localDateString } from '@/lib/dates';
 import { doseText } from '@/lib/labels';
+import { dayLog, getCurrentTarget, getNutritionState } from '@/lib/nutrition';
 import { getProfile } from '@/lib/profile';
 import { recentRecords } from '@/lib/progress';
 import { getWeekSummary } from '@/lib/queries/sessions';
@@ -31,7 +32,8 @@ export default async function TodayPage() {
   const firstName = session.user.name.trim().split(' ')[0] || session.user.name;
   const day = routine ? await nextRoutineDay(userId, routine) : null;
   if (profile?.onboardingCompletedAt) await ensureScheduledCheckins(userId);
-  const [checkins, records] = await Promise.all([pendingCheckins(userId), recentRecords(userId, 3)]);
+  const [checkins, records, nutrition] = await Promise.all([pendingCheckins(userId), recentRecords(userId, 3), getNutritionState(userId)]);
+  const [target, intake] = nutrition.status === 'ready' ? await Promise.all([getCurrentTarget(userId), dayLog(userId, localDateString())]) : [null, null];
   const checkin = checkins[0] ?? null;
   const planned = routine?.days.length ?? 0;
 
@@ -124,6 +126,16 @@ export default async function TodayPage() {
         <Card>
           <Metric label="Sesiones totales" value={week.total} />
         </Card>
+        {target && intake ? (
+          <Link href="/nutricion" className="col-span-2 rounded-card border border-border bg-card p-5 transition-colors hover:bg-card-hover">
+            <Metric
+              label="Calorías de hoy"
+              value={Math.round(intake.totals.kcal).toLocaleString('es-MX')}
+              unit={`/ ${target.kcal.toLocaleString('es-MX')} kcal`}
+              hint={`${intake.totals.proteinG} de ${target.proteinG} g de proteína`}
+            />
+          </Link>
+        ) : null}
       </section>
 
       {records.length > 0 ? (

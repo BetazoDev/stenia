@@ -6,6 +6,7 @@ import { inferCategory, inferLoadType, inferPattern, normalizeLevel } from '../c
 import { mapFreeExerciseDbEquipment } from '../equipment-map';
 import { normalizeMuscles } from '../muscles';
 import { slugify } from '../slug';
+import { translateExerciseName } from '../translate-exercise';
 
 export const FREE_EXERCISE_DB_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json';
 export const FREE_EXERCISE_DB_IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
@@ -47,7 +48,7 @@ export async function importFreeExerciseDb(db: Db, rawRows: unknown[], options: 
       db,
       {
         slug,
-        nameEs: row.name,
+        nameEs: translateExerciseName(row.name),
         nameEn: row.name,
         pattern,
         category: inferCategory({ loadType, pattern, bodyweight: loadType !== 'external' }),
