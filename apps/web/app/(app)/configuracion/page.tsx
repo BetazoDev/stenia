@@ -1,9 +1,10 @@
-import { and, eq } from 'drizzle-orm';
-import { account } from '@stenia/db';
+import { and, count, eq } from 'drizzle-orm';
+import { account, bodyPhoto } from '@stenia/db';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { DeleteAccount } from '@/components/account/delete-account';
+import { DeletePhotos } from '@/components/account/delete-photos';
 import { PushToggle } from '@/components/account/push-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ export default async function SettingsPage() {
     .from(account)
     .where(and(eq(account.userId, user.id), eq(account.providerId, 'credential')))
     .limit(1);
+  const [photos] = await getDb().select({ n: count() }).from(bodyPhoto).where(eq(bodyPhoto.userId, user.id));
 
   return (
     <div className="flex flex-col gap-8">
@@ -79,6 +81,14 @@ export default async function SettingsPage() {
             </a>
           </Button>
         </div>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Fotos corporales</CardTitle>
+          <CardDescription>Guardadas en almacenamiento privado. Borrarlas también retira tu consentimiento para fotos.</CardDescription>
+        </CardHeader>
+        <DeletePhotos count={photos?.n ?? 0} />
       </Card>
 
       <Card className="border-down/30">

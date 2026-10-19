@@ -39,7 +39,14 @@ function buildAuth() {
         locale: { type: 'string', required: false, defaultValue: 'es-MX', input: false },
         privacyAcceptedAt: { type: 'date', required: false, input: false },
       },
-      deleteUser: { enabled: true },
+      deleteUser: {
+        enabled: true,
+        // Las filas se borran en cascada; los archivos privados en R2 se quitan antes (sección 16).
+        beforeDelete: async (user) => {
+          const { deleteAllPhotos } = await import('./body');
+          await deleteAllPhotos(user.id);
+        },
+      },
     },
     databaseHooks: {
       user: {
