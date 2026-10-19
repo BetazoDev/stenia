@@ -9,6 +9,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
 COPY packages/ai/package.json packages/ai/
+COPY packages/catalog/package.json packages/catalog/
 COPY scripts/package.json scripts/
 RUN pnpm install --frozen-lockfile
 
