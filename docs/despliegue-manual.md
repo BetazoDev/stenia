@@ -10,7 +10,8 @@ La imagen de la app la publica GitHub Actions en cada push a `main`: `ghcr.io/be
 ## 1. Dar acceso a la imagen (elige una opción)
 
 **Opción A · paquete público (la más simple).** La imagen no contiene secretos: las variables se inyectan al
-arrancar.
+arrancar. El repositorio ya es público, pero el paquete de GHCR no hereda esa visibilidad y hay que cambiarla
+aparte; la API de GitHub no permite hacerlo, solo la interfaz.
 
 1. Abre https://github.com/users/BetazoDev/packages/container/stenia-web/settings
 2. En *Danger Zone*, *Change visibility* → *Public*.
