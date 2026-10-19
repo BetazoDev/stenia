@@ -174,3 +174,25 @@ proveedor Docker, primer despliegue y secreto `DOKPLOY_DEPLOY_WEBHOOK` en GitHub
 - En el navegador (375 × 812) cargan los estilos y las fuentes Clash Grotesk y Switzer, sin errores en consola.
 
 Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone Cloudflare R2 por ahora.
+
+## 2026-10-19 · Fase 2: progreso y revisiones
+
+- **Fotos sin R2.** El almacenamiento privado usa el bucket `stenia-private` si existen `R2_ACCOUNT_ID`,
+  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET_PRIVATE` (URL firmada de 5 minutos); si no, guarda los bytes
+  en Postgres (`stored_file`) y los sirve solo a su dueño por `/api/files/[id]` (401 sin sesión). Cada foto recuerda su
+  driver, así que activar R2 después no rompe las anteriores. Límite de 4 MB; el cliente reescala a 1280 px en JPEG.
+- **MediaPipe en el dispositivo.** Pose Landmarker *lite* se carga bajo demanda desde jsDelivr (wasm) y Google Storage
+  (modelo); la imagen nunca sale del navegador para validarse. El servidor vuelve a evaluar la pose con los landmarks
+  recibidos. Si el modelo no carga, se permite guardar con aviso.
+- **Consentimiento de fotos** separado (`profile.photos_consent_at`); borrar todas las fotos lo retira.
+- **Revisiones.** Calendario automático: ligera cada 7 días y completa cada 28 desde la última completada; modos fijos
+  semanal, quincenal o mensual (solo completas). La completa también reprograma la ligera. Las adelantadas se abren por
+  disparador como máximo una vez por semana por tipo, en la tarea diaria y al cerrar una sesión (`after()`).
+- **Métricas antes que IA.** El código calcula tendencia de peso (EMA α = 0.1), pendiente solo con ≥ 3 pesajes en 14
+  días, adherencia solo de semanas completas desde el inicio de la rutina, estancamiento y dolor. El LLM recibe códigos
+  E/S (ejercicio y sustitutos válidos) y sus ajustes se filtran: cambios de ejercicio solo hacia sustitutos listados,
+  calorías solo con tendencia suficiente. Si no hay IA o nada sobrevive al filtro, se usan las propuestas por reglas.
+- **Aplicación.** Los ajustes aceptados que tocan la rutina crean una versión nueva con autor `user` y
+  `meta.source = 'checkin'`; la descarga aceptada activa −10 % y una serie menos durante 7 días en el motor de
+  progresión; los ajustes de calorías quedan en `checkin.decision` para Nutrición (tope ±500 kcal acumulado).
+- Escala de las respuestas 1–5 (energía, sueño, esfuerzo, valoración del plan); el esfuerzo de sesión sigue en 1–10.

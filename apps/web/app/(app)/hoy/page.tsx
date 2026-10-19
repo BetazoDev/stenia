@@ -1,3 +1,5 @@
+import { CHECKIN_TYPE_LABELS_ES, RECORD_LABELS_ES, type CheckinType, type RecordType } from '@stenia/core';
+import { ChevronRight, Trophy } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -9,9 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Metric } from '@/components/ui/metric';
+import { ensureScheduledCheckins, pendingCheckins } from '@/lib/checkins';
+import { TRIGGER_LABELS_ES, type EarlyTrigger } from '@/lib/checkins-trigger';
 import { blockWeek } from '@/lib/dates';
 import { doseText } from '@/lib/labels';
 import { getProfile } from '@/lib/profile';
+import { recentRecords } from '@/lib/progress';
 import { getWeekSummary } from '@/lib/queries/sessions';
 import { getActiveRoutine, nextRoutineDay } from '@/lib/routine';
 import { requireSession } from '@/lib/session';
@@ -25,6 +30,9 @@ export default async function TodayPage() {
   const [week, profile, routine] = await Promise.all([getWeekSummary(userId), getProfile(userId), getActiveRoutine(userId)]);
   const firstName = session.user.name.trim().split(' ')[0] || session.user.name;
   const day = routine ? await nextRoutineDay(userId, routine) : null;
+  if (profile?.onboardingCompletedAt) await ensureScheduledCheckins(userId);
+  const [checkins, records] = await Promise.all([pendingCheckins(userId), recentRecords(userId, 3)]);
+  const checkin = checkins[0] ?? null;
   const planned = routine?.days.length ?? 0;
 
   return (
@@ -42,6 +50,22 @@ export default async function TodayPage() {
           todayIndex={week.todayIndex}
         />
       </Card>
+
+      {checkin ? (
+        <Link
+          href={`/revision/${checkin.id}`}
+          className="flex items-center gap-4 rounded-card border border-text bg-card p-4 transition-colors hover:bg-card-hover"
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="label">Revisión pendiente</span>
+            <span className="text-lg">{CHECKIN_TYPE_LABELS_ES[checkin.type as CheckinType]}</span>
+            <span className="text-sm text-text-3">
+              {checkin.trigger ? (TRIGGER_LABELS_ES[checkin.trigger as EarlyTrigger] ?? checkin.trigger) : 'Dos minutos para ajustar el plan con tus datos.'}
+            </span>
+          </span>
+          <ChevronRight strokeWidth={1.5} className="size-5 text-text-2" />
+        </Link>
+      ) : null}
 
       {!profile?.onboardingCompletedAt ? (
         <EmptyState
@@ -101,6 +125,31 @@ export default async function TodayPage() {
           <Metric label="Sesiones totales" value={week.total} />
         </Card>
       </section>
+
+      {records.length > 0 ? (
+        <section className="flex flex-col gap-3" aria-labelledby="recent-records">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="recent-records" className="text-2xl">
+              Récords recientes
+            </h2>
+            <Link href="/progreso" className="text-sm text-text-2 underline underline-offset-4">
+              Ver progreso
+            </Link>
+          </div>
+          <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
+            {records.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                <Trophy strokeWidth={1.5} className="size-4 shrink-0 text-text-2" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate">{r.name}</span>
+                  <span className="text-sm text-text-3">{RECORD_LABELS_ES[r.type as RecordType] ?? r.type}</span>
+                </span>
+                <span className="font-display text-lg tracking-display tnum">{r.value.toLocaleString('es-MX')}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

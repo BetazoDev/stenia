@@ -11,6 +11,8 @@
     "build:migrate": "bun build migrate.mjs --target=node --format=esm --outfile=.next/migrate.bundle.mjs --external pg-native"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1149.0",
+    "@aws-sdk/s3-request-presigner": "3.1149.0",
     "@mediapipe/tasks-vision": "1.1.1",
     "@serwist/turbopack": "9.5.13",
     "@stenia/ai": "workspace:*",
