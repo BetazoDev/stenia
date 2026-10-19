@@ -90,3 +90,45 @@ Notas:
 - Pendientes que dependen del usuario: destino de respaldos en R2 (pasos 2 y 5), repositorio en GitHub y primer
   push del workflow para que exista la imagen `ghcr.io/<owner>/stenia-web:latest` (paso 7: proveedor Docker y
   despliegue), credenciales de Google OAuth (opcional: el acceso por correo ya funciona).
+
+## 2026-10-19 · Migración al Dokploy nuevo (216.238.95.246)
+
+El MCP de Dokploy ahora apunta a otra instancia (v0.30.8, organización de Hemeron, 4 GB de RAM, ≈62 GB de disco
+libre). La instancia anterior (93.188.167.69) ya no es accesible desde el agente; sus recursos de Stenia quedan
+huérfanos allí (ver final de esta sección).
+
+| Paso | Recurso | ID / valor (sin secretos) |
+| --- | --- | --- |
+| 3 | Proyecto `stenia` | projectId `3vCVIAFBNtoDHESIdQLeE`, environmentId `X19EbfkLs9N5HC3eOMxPZ` |
+| 4 | Postgres `stenia-db` (postgres:18, 512 MB / 256 MB, sin puerto externo) | postgresId `7ZCJJ4TNU6fbw7mShhGaz`, appName `stenia-db-cejyvl` — **creada, sin desplegar** |
+| 7 | Aplicación `stenia-web` (Docker `ghcr.io/betazodev/stenia-web:latest`, 1 GB / 256 MB, variables de 3.1) | applicationId `ItylE_xFy1yUwqhzmC_NO`, appName `stenia-web-luq51n` — **sin desplegar** |
+| 7 | Dominio `stenia.halonso.digital` → 3000, HTTPS Let's Encrypt | domainId `LeZoDBjqUfjXeZ32Q0tu1` |
+| 8 | Tarea `stenia-checkin-reminders` (09:00 America/Mexico_City) | scheduleId `wHfRajHtaVQw0xoxw3qPO` |
+| 12.1 | Buckets R2 en la cuenta de Cloudflare de Hemeron | `stenia-backups`, `stenia-private`, `stenia-public` (ENAM) |
+| 12.1 | Repositorio privado | `github.com/BetazoDev/stenia` (vacío: push rechazado, ver abajo) |
+
+Decisiones y bloqueos:
+
+1. **Puerta de RAM del paso 0 no superada.** `docker-getServerHealth` reporta ≈1.17 GiB libres (umbral del PRD:
+   1.5 GB). Siguiendo el PRD ("si no, detenerse y avisar") no se desplegó ningún contenedor; todo quedó configurado.
+   El consumo real esperado en reposo es ≈250–350 MB (Postgres + Next standalone) con límites duros de 512 MB y
+   1 GB, así que el despliegue es viable si el usuario lo aprueba o si se bajan los límites (p. ej. 256 MB / 768 MB).
+2. **Push a GitHub rechazado.** El token de `gh` (scopes `gist`, `read:org`, `repo`) no tiene `workflow`, y GitHub
+   exige ese scope para subir `.github/workflows/ci-deploy.yml`. Se resuelve con `gh auth refresh -s workflow`.
+3. **Paquete de GHCR privado por defecto.** Al ser privado el repo, Dokploy necesitará credenciales para descargar
+   la imagen (registro `ghcr` con un PAT `read:packages`) o que el paquete se marque como público. El agente no
+   usa el token personal de `gh` para eso.
+4. **No se construye en el servidor** aunque existe la GitHub App "Dokploy-Hemeron": con 4 GB de RAM y ≈1.2 GB
+   libres, un build de Next podría tumbar los demás proyectos (sitios de clientes en producción).
+5. **DNS:** `stenia.halonso.digital` (Hostinger, `dns-parking.com`) sigue apuntando a 93.188.167.69; hay que
+   cambiar el registro A a `216.238.95.246`. Alternativa inmediata: `*.hemeron.com` ya resuelve a este servidor.
+6. **Secretos nuevos** para esta instancia (contraseña de Postgres, `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`,
+   `CRON_SECRET`), escritos por el agente en Dokploy y en `.env.production.local` (ignorado). Se pueden rotar.
+7. **Workflow corregido:** GitHub no admite `secrets` dentro de `if:`; el paso de redespliegue lee el webhook desde
+   `env` y se omite si no existe. Se añadió la etiqueta `org.opencontainers.image.source` para enlazar el paquete.
+8. **R2:** los buckets existen, pero el token S3 (Access Key ID / Secret) y el acceso público de `stenia-public` se
+   crean en el panel de Cloudflare; las herramientas conectadas no los gestionan.
+
+Recursos huérfanos en el Dokploy anterior (93.188.167.69), pendientes de borrar por el usuario: proyecto `stenia`
+(`5z9GRnbMU1uqLFrK2KaUJ`) con Postgres `Fm6Y7SPHXs1PrawuTb7Hu` (en ejecución), aplicación `zoY7qs_Q8ljZ38lttM8oK`,
+dominio `sRC82nZB1mPr0RP3AjWHv` y tarea `ysu25jDB8pCkcjQoN6L4z`.
