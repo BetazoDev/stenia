@@ -65,4 +65,8 @@ jobs:
             echo "Sin DOKPLOY_DEPLOY_WEBHOOK: se omite el redespliegue automático."
             exit 0
           fi
+          if ! printf '%s' "$DOKPLOY_DEPLOY_WEBHOOK" | grep -Eq '^https?://[^/]+/api/deploy/[^/]+'; then
+            echo "::error::DOKPLOY_DEPLOY_WEBHOOK debe ser la URL completa del webhook: https://<panel-de-dokploy>/api/deploy/<token>"
+            exit 1
+          fi
           curl -fsS -X POST "$DOKPLOY_DEPLOY_WEBHOOK"
