@@ -226,3 +226,22 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
 - **Ejercicios en español.** free-exercise-db y calistenia traen nombres en inglés; un glosario determinista
   (equipo al final, concordancia de género) los traduce al importar y con una tarea de administración. RepDB conserva
   sus nombres revisados.
+
+## 2026-10-19 · Fase 4: IA avanzada y visión
+
+- **Tickets InBody/BIA/DEXA.** `/progreso/inbody` envía la foto (reescalada a 2,000 px) al modelo de visión solo si
+  el interruptor de fotos está encendido; la imagen no se guarda. La persona confirma o corrige cada valor antes de
+  guardar; la TMB medida pasa a mandar en las metas y se recalculan al momento. Sin IA, el mismo formulario funciona
+  a mano.
+- **Gasto adaptativo.** Ya calculado en la Fase 3; ahora las metas se recalculan en la tarea diaria y al aceptar un
+  ajuste de calorías en una revisión, y quedan en el historial de `nutrition_target`.
+- **Conteo de repeticiones.** Máquina de estados en `@stenia/core` (ángulo de rodilla o codo con el lado más visible,
+  media móvil y 2 cuadros de confirmación; la dominada exige la barbilla sobre las manos). Umbrales: sentadilla
+  160°/100°, lagartija 155°/90°, dominada 150°/75°; las repeticiones cortas se cuentan aparte con una indicación.
+  MediaPipe *lite* en modo video, en el teléfono; el botón aparece en la sesión en vivo solo para sentadilla,
+  lagartija y dominada, y el número se pasa a la serie para confirmarlo.
+- **% de grasa por foto.** Experimental y etiquetado: requiere consentimiento de fotos, el interruptor de envío y una
+  confirmación explícita que explica qué se envía. Se guarda como medición `approximate = true` con rango y
+  confianza; nunca entra en metas, revisiones ni tendencias.
+- **Sin conexión verificado** con Playwright contra un build de producción (`e2e/offline.spec.ts`): la sesión en vivo
+  abre desde caché y el resto muestra `/sin-conexion`.

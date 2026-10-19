@@ -17,10 +17,21 @@ pnpm db:migrate && pnpm db:seed
 pnpm dev
 ```
 
-Puerta de calidad: `pnpm lint && pnpm typecheck && pnpm test`.
+Puerta de calidad: `pnpm lint && pnpm typecheck && pnpm test`. Pruebas de punta a punta: `pnpm test:e2e`.
+
+## Qué incluye
+
+| Fase | Funciones |
+| --- | --- |
+| 0 · Fundaciones | Monorepo, auth con rol admin, configuración de IA (BYOK), catálogos de ejercicios, despliegue |
+| 1 · Rutina y sesión | Cuestionario PAR-Q+/ACSM, equipamiento, generación con validación y plantilla, sesión en vivo offline |
+| 2 · Progreso | Récords, gráficas, mapa muscular, medidas (Marina), fotos guiadas con MediaPipe, revisiones con ajustes |
+| 3 · Nutrición | Alimentos USDA en español, metas, plan semanal con porciones ajustadas, registro diario, código de barras |
+| 4 · IA y visión | Lectura de tickets InBody/BIA/DEXA, gasto adaptativo, conteo de repeticiones por cámara, % grasa por foto (experimental) |
 
 ## Créditos de datos
 
 Exercise data by [RepDB](https://repdb.co) · [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
 (Unlicense) · [Martjn/calisthenics_exercises](https://huggingface.co/datasets/Martjn/calisthenics_exercises)
-(Apache-2.0).
+(Apache-2.0) · [USDA FoodData Central](https://fdc.nal.usda.gov) (dominio público) ·
+[Open Food Facts](https://world.openfoodfacts.org) (ODbL).

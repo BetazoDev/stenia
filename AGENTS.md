@@ -48,7 +48,8 @@ docs/despliegue-manual.md  guía para desplegar desde la interfaz de Dokploy
 | `pnpm dev` | App en http://localhost:3000 |
 | `pnpm build` / `pnpm start` | Build standalone y servidor de producción |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | Puerta de calidad |
-| `pnpm test:e2e` | Playwright (móvil y escritorio); necesita la app y la base corriendo |
+| `pnpm test:e2e` | Playwright (móvil y escritorio); necesita la app y la base corriendo (`--workers=1` con PGlite) |
+| `PLAYWRIGHT_OFFLINE=1 pnpm test:e2e offline` | Prueba sin conexión del service worker; solo contra un build de producción |
 | `pnpm db:generate` | Genera migración a partir de `packages/db/src/schema` |
 | `pnpm db:migrate` | Aplica migraciones a `DATABASE_URL` |
 | `pnpm db:seed` | Siembra el catálogo de equipamiento |

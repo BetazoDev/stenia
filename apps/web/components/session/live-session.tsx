@@ -10,10 +10,11 @@ import {
   resumeClock,
   sessionElapsedMs,
   adjustRest,
+  repExerciseFor,
   RECORD_LABELS_ES,
 } from '@stenia/core';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, ArrowRightLeft, Ban, Check, NotebookPen, Pause, Play, Plus } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Ban, Check, NotebookPen, Pause, Play, Plus, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { restEndAlert, scheduleRestPush, unlockAudio, useNow, useWakeLock } from './device';
 import { RestBar } from './rest-bar';
 import { estimateActualRest, localRecords, stepSet, substituteExercise, updateExercise, updateSession, updateSet, uuid } from './session-actions';
+import { RepCounter } from './rep-counter';
 import { SessionSummaryView } from './session-summary';
 import { SetRow } from './set-row';
 
@@ -45,7 +47,7 @@ function lastSetText(s: { weightKg: number | null; assistanceKg: number | null; 
   return `${fmtKg(s.weightKg ?? 0)} kg × ${s.reps ?? 0}${rir}`;
 }
 
-type SheetKind = 'none' | 'finish' | 'substitute' | 'busy' | 'notes' | 'pain' | 'media';
+type SheetKind = 'none' | 'finish' | 'substitute' | 'busy' | 'notes' | 'pain' | 'media' | 'camera';
 
 export function LiveSession({ sessionId }: { sessionId: string }) {
   const db = localDb();
@@ -143,6 +145,7 @@ export function LiveSession({ sessionId }: { sessionId: string }) {
   const elapsed = sessionElapsedMs(clock, now);
   const paused = session.pausedAt !== null;
   const snapshot = current?.snapshot;
+  const repExercise = snapshot ? repExerciseFor({ name: snapshot.name, slug: snapshot.slug, pattern: snapshot.pattern }) : null;
   const weightStep = snapshot?.equipment.includes('dumbbells') ? 1 : 2.5;
 
   async function completeSet(set: LocalSet, isometricSeconds?: number) {
@@ -408,6 +411,11 @@ export function LiveSession({ sessionId }: { sessionId: string }) {
             <Button variant="ghost" size="sm" onClick={() => setSheet('pain')}>
               <AlertTriangle strokeWidth={1.5} /> Dolor
             </Button>
+            {repExercise && nextOpen && snapshot.loadType !== 'isometric' ? (
+              <Button variant="ghost" size="sm" onClick={() => setSheet('camera')}>
+                <Video strokeWidth={1.5} /> Contar con cámara
+              </Button>
+            ) : null}
           </div>
 
           {!nextOpen && exercises.findIndex((e) => e.id === current.id) < exercises.length - 1 ? (
@@ -527,6 +535,18 @@ export function LiveSession({ sessionId }: { sessionId: string }) {
             Cancelar
           </Button>
         </div>
+      </Sheet>
+
+      <Sheet open={sheet === 'camera'} onOpenChange={(o) => setSheet(o ? 'camera' : 'none')} title="Contar con cámara" className="md:max-w-2xl">
+        {repExercise && sheet === 'camera' ? (
+          <RepCounter
+            exercise={repExercise}
+            onUse={(reps) => {
+              if (nextOpen) void updateSet(nextOpen.id, { reps }, false);
+              setSheet('none');
+            }}
+          />
+        ) : null}
       </Sheet>
 
       <Sheet open={sheet === 'media'} onOpenChange={(o) => setSheet(o ? 'media' : 'none')} title={snapshot?.name ?? 'Técnica'}>

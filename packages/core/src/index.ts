@@ -7,3 +7,4 @@ export * from './routine/index';
 export * from './training/index';
 export * from './progress/index';
 export * from './nutrition/index';
+export * from './vision/index';

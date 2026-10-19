@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { detectAndOpenEarlyCheckins, ensureScheduledCheckins } from '@/lib/checkins';
 import { TRIGGER_LABELS_ES } from '@/lib/checkins-trigger';
 import { getDb } from '@/lib/db';
+import { getNutritionState, refreshTargets } from '@/lib/nutrition';
 import { env } from '@/lib/env';
 import { sendPush } from '@/lib/push';
 
@@ -12,8 +13,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 /**
- * Tarea programada diaria (runbook, paso 8): crea las revisiones vencidas, detecta disparadores de revisión
- * adelantada y avisa por push a quien tenga suscripción.
+ * Tarea programada diaria (runbook, paso 8): recalcula metas (gasto adaptativo), crea las revisiones vencidas,
+ * detecta disparadores de revisión adelantada y avisa por push a quien tenga suscripción.
  */
 export async function GET(request: NextRequest) {
   const secret = env().CRON_SECRET;
@@ -25,9 +26,15 @@ export async function GET(request: NextRequest) {
   let scheduled = 0;
   let early = 0;
   let pushed = 0;
+  let targets = 0;
   const errors: string[] = [];
   for (const { userId } of users) {
     try {
+      // Gasto adaptativo: con 14 días de registro las metas pasan a usar los datos reales.
+      if ((await getNutritionState(userId)).status === 'ready') {
+        const before = await refreshTargets(userId);
+        if (before) targets += 1;
+      }
       const created = await ensureScheduledCheckins(userId);
       const opened = await detectAndOpenEarlyCheckins(userId);
       scheduled += created.length;
@@ -52,5 +59,5 @@ export async function GET(request: NextRequest) {
       errors.push(error instanceof Error ? error.message.slice(0, 120) : 'error');
     }
   }
-  return NextResponse.json({ ok: errors.length === 0, users: users.length, scheduled, early, pushed, errors: errors.length });
+  return NextResponse.json({ ok: errors.length === 0, users: users.length, scheduled, early, pushed, targets, errors: errors.length });
 }

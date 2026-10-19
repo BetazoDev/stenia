@@ -62,3 +62,15 @@ export async function deletePrivate(userId: string, key: string, driver: Storage
   }
   await getDb().delete(storedFile).where(and(eq(storedFile.userId, userId), eq(storedFile.key, key)));
 }
+
+/** Bytes de un archivo privado (para enviarlo al LLM solo por acción explícita del usuario). */
+export async function readPrivate(userId: string, key: string, driver: StorageDriver): Promise<{ data: Uint8Array; contentType: string } | null> {
+  const r2 = r2Config();
+  if (driver === 'r2' && r2) {
+    const res = await r2.client.send(new GetObjectCommand({ Bucket: r2.bucket, Key: key }));
+    if (!res.Body) return null;
+    return { data: await res.Body.transformToByteArray(), contentType: res.ContentType ?? 'image/jpeg' };
+  }
+  const row = await readPrivateFromDb(userId, key);
+  return row ? { data: new Uint8Array(row.data), contentType: row.contentType } : null;
+}

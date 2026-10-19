@@ -8,9 +8,11 @@ import { PhotoConsentCard } from '@/components/progress/consent-card';
 import { DeleteButton } from '@/components/progress/delete-button';
 import { PhotoCapture } from '@/components/progress/photo-capture';
 import { PhotoCompare } from '@/components/progress/photo-compare';
+import { PhotoEstimate } from '@/components/progress/photo-estimate';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
-import { listPhotos } from '@/lib/body';
+import { aiStatus } from '@/lib/ai';
+import { listMeasurements, listPhotos } from '@/lib/body';
 import { getProfile } from '@/lib/profile';
 import { requireSession } from '@/lib/session';
 import { formatShortDate } from '@/lib/time';
@@ -19,7 +21,17 @@ export const metadata: Metadata = { title: 'Fotos de progreso' };
 
 export default async function PhotosPage() {
   const { user } = await requireSession();
-  const [profile, photos] = await Promise.all([getProfile(user.id), listPhotos(user.id)]);
+  const [profile, photos, status, measurements] = await Promise.all([getProfile(user.id), listPhotos(user.id), aiStatus('body_fat_photo'), listMeasurements(user.id, 60)]);
+  const hasPoses = photos.some((p) => p.pose === 'front') && photos.some((p) => p.pose === 'side');
+  const estimateReason = !hasPoses
+    ? 'Necesitas al menos una foto de frente y una de perfil.'
+    : !status.available
+      ? 'La IA no está configurada o se alcanzó el presupuesto.'
+      : !status.sendPhotos
+        ? 'El envío de fotos a la IA está apagado en Configuración de desarrollador.'
+        : null;
+  const lastEstimate = measurements.find((m) => m.bodyFatMethod === 'photo_estimate' && m.bodyFatPct !== null);
+  const range = (lastEstimate?.raw ?? null) as { rangeLow?: number; rangeHigh?: number } | null;
   const consent = Boolean(profile?.photosConsentAt);
   const byDate = new Map<string, typeof photos>();
   for (const p of photos) {
@@ -79,6 +91,18 @@ export default async function PhotosPage() {
               </ul>
             </section>
           ))}
+
+          <Card>
+            <PhotoEstimate
+              available={estimateReason === null}
+              reason={estimateReason}
+              last={
+                lastEstimate?.bodyFatPct
+                  ? { pct: lastEstimate.bodyFatPct, low: range?.rangeLow ?? null, high: range?.rangeHigh ?? null, date: formatShortDate(new Date(`${lastEstimate.measuredAt}T12:00:00Z`)) }
+                  : null
+              }
+            />
+          </Card>
 
           <Card className="flex flex-col gap-3">
             <h2 className="text-xl">Privacidad</h2>

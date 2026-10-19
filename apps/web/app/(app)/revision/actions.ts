@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { analyzeCheckin, decideCheckin, dismissCheckin, openCheckinNow, setCheckinMode, type StoredProposal } from '@/lib/checkins';
+import { getNutritionState, refreshTargets } from '@/lib/nutrition';
 import { requireSession } from '@/lib/session';
 
 export type AnalyzeResult = { ok: true; summary: string; proposals: StoredProposal[]; generator: 'llm' | 'rules'; aiMessage: string | null } | { ok: false; message: string };
@@ -27,6 +28,11 @@ export async function decideCheckinAction(id: string, decision: unknown): Promis
   const { user } = await requireSession();
   try {
     const result = await decideCheckin(user.id, z.string().min(1).parse(id), decision);
+    // Un ajuste de calorías aceptado se refleja de inmediato en las metas de nutrición.
+    if (result.accepted.some((a) => a.kind === 'calories') && (await getNutritionState(user.id)).status === 'ready') {
+      await refreshTargets(user.id);
+      revalidatePath('/nutricion');
+    }
     revalidatePath('/revision');
     revalidatePath('/rutina');
     revalidatePath('/hoy');
