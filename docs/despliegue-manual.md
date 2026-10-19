@@ -46,7 +46,7 @@ Guarda.
 1. Botón **Deploy** de la aplicación.
 2. En **Logs** debe aparecer `Migraciones aplicadas desde /app/drizzle` y luego el arranque de Next.
 3. Abre https://stenia.halonso.digital/api/health → `{"ok":true,"db":"ok",…}`.
-4. Regístrate en https://stenia.halonso.digital/registro con `manuel.gonzalez@hemeron.com`: esa cuenta recibe rol
+4. Regístrate en https://stenia.halonso.digital/registro con el correo que pusiste en `ADMIN_EMAILS`: esa cuenta recibe rol
    admin y puede abrir `/settings/developer` para cargar la API key del LLM.
 
 ## 5. Redespliegue automático en cada push

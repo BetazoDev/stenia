@@ -155,3 +155,9 @@ el dominio y la tarea programada (IDs en la sección del 2026-10-12). Consecuenc
 El usuario no reconectará el MCP al Dokploy anterior y terminará el despliegue a mano desde la interfaz. La guía
 paso a paso está en `docs/despliegue-manual.md` (acceso a GHCR, proveedor Docker, despliegue, webhook, respaldos
 en R2 y Google OAuth opcional).
+
+## 2026-10-19 · Repositorio público
+
+Por decisión del usuario, `BetazoDev/stenia` pasa a ser público. Antes se revisó todo el historial: ningún secreto
+generado aparece en ningún commit, el único archivo de entorno versionado es `.env.example` sin valores y el
+correo personal se quitó de la guía de despliegue (sigue visible como autor de los commits).
