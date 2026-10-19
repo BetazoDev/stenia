@@ -14,9 +14,9 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
   const rows = await db
     .select({ startedAt: workoutSession.startedAt })
     .from(workoutSession)
-    .where(and(eq(workoutSession.userId, userId), gte(workoutSession.startedAt, start), lt(workoutSession.startedAt, end)));
+    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, 'completed'), gte(workoutSession.startedAt, start), lt(workoutSession.startedAt, end)));
   const days = Array.from({ length: 7 }, () => false);
   for (const row of rows) days[weekdayIndex(row.startedAt)] = true;
-  const [total] = await db.select({ value: count() }).from(workoutSession).where(eq(workoutSession.userId, userId));
+  const [total] = await db.select({ value: count() }).from(workoutSession).where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, 'completed')));
   return { days, todayIndex, thisWeek: rows.length, total: total?.value ?? 0 };
 }

@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { DeleteAccount } from '@/components/account/delete-account';
+import { PushToggle } from '@/components/account/push-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,14 @@ export default async function SettingsPage() {
           <CardDescription>{user.email}</CardDescription>
         </CardHeader>
         <SignOutButton />
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notificaciones</CardTitle>
+          <CardDescription>Fin del descanso con la app en segundo plano y recordatorios de revisiones.</CardDescription>
+        </CardHeader>
+        <PushToggle />
       </Card>
 
       {isAdmin(user) ? (

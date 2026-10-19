@@ -42,6 +42,12 @@ export default tseslint.config(
     },
   },
   {
+    // Las imágenes del catálogo vienen de fuentes abiertas externas: se muestran sin pasar por el optimizador
+    // de Next para no proxyar contenido de terceros desde el VPS (docs/decisions.md).
+    files: ['apps/web/**/*.tsx'],
+    rules: { '@next/next/no-img-element': 'off' },
+  },
+  {
     files: ['scripts/**/*.ts', 'apps/web/migrate.mjs'],
     rules: { 'no-console': 'off' },
   },

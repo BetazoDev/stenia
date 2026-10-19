@@ -26,6 +26,8 @@
   --radius-chip: 8px;
   --radius-pill: 999px;
 
+  --spacing-13: 3.25rem;
+
   --font-display: 'Clash Grotesk', 'Switzer', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Switzer', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
@@ -83,6 +85,54 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+@keyframes two-phase {
+  0%,
+  35% {
+    opacity: 0;
+  }
+  50%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

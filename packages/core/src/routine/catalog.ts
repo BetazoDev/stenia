@@ -125,8 +125,8 @@ export function scoreExercise(ex: CatalogExercise, slot: Slot, ctx: GenerationCo
 }
 
 const SKILL_TERMS: Record<string, RegExp> = {
-  handstand: /handstand|pino|wall walk|pike/i,
-  planche: /planche|pseudo planche|tuck planche|lean/i,
+  handstand: /handstand|pino|wall walk|pike push.?up|wall.?handstand/i,
+  planche: /planche|pseudo planche|planche lean/i,
   muscle_up: /muscle.?up|explosive pull|chest.?to.?bar|high pull/i,
   front_lever: /front lever|tuck lever|dragon flag/i,
   back_lever: /back lever|skin the cat|german hang/i,

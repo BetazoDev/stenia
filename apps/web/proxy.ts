@@ -1,7 +1,7 @@
 import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = new Set(['/login', '/registro', '/privacidad', '/creditos']);
+const PUBLIC_PATHS = new Set(['/login', '/registro', '/privacidad', '/creditos', '/sin-conexion']);
 
 /**
  * Comprobación optimista por cookie: redirige a /login sin sesión y a /hoy si ya hay sesión en las
@@ -24,5 +24,5 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next|icons|manifest\\.webmanifest|favicon\\.ico|robots\\.txt|.*\\.[\\w]+$).*)'],
+  matcher: ['/((?!api|_next|serwist|icons|manifest\\.webmanifest|favicon\\.ico|robots\\.txt|.*\\.[\\w]+$).*)'],
 };

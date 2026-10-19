@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { SerwistProvider } from '@serwist/turbopack/react';
+
 import { Providers } from '@/components/providers';
 
 import './globals.css';
@@ -34,7 +36,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="stylesheet" href={FONTSHARE_URL} />
       </head>
       <body className="bg-bg text-text">
-        <Providers>{children}</Providers>
+        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === 'development'} reloadOnOnline={false}>
+          <Providers>{children}</Providers>
+        </SerwistProvider>
       </body>
     </html>
   );

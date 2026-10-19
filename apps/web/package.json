@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p sw/tsconfig.json",
     "build:migrate": "bun build migrate.mjs --target=node --format=esm --outfile=.next/migrate.bundle.mjs --external pg-native"
   },
   "dependencies": {
