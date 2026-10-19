@@ -149,3 +149,9 @@ el dominio y la tarea programada (IDs en la sección del 2026-10-12). Consecuenc
   (`credential.helper=!gh auth git-credential`), porque el llavero de macOS guarda un token sin scope `workflow`.
   Para pushes futuros sin ese parámetro: `gh auth setup-git`.
 - `.env.production.local` vuelve a tener como principales los secretos del servidor anterior.
+
+## 2026-10-19 · Despliegue manual
+
+El usuario no reconectará el MCP al Dokploy anterior y terminará el despliegue a mano desde la interfaz. La guía
+paso a paso está en `docs/despliegue-manual.md` (acceso a GHCR, proveedor Docker, despliegue, webhook, respaldos
+en R2 y Google OAuth opcional).

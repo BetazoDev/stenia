@@ -37,6 +37,7 @@ scripts/            importadores Bun (free-exercise-db, calistenia, RepDB), semi
 infra/              Dockerfile y docker-compose.dev.yml
 .github/workflows/  ci-deploy.yml (lint, tipos, pruebas → imagen en GHCR → webhook de Dokploy)
 docs/decisions.md   bitácora de decisiones del agente
+docs/despliegue-manual.md  guía para desplegar desde la interfaz de Dokploy
 ```
 
 ## Comandos
