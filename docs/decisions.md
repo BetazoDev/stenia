@@ -161,3 +161,16 @@ en R2 y Google OAuth opcional).
 Por decisión del usuario, `BetazoDev/stenia` pasa a ser público. Antes se revisó todo el historial: ningún secreto
 generado aparece en ningún commit, el único archivo de entorno versionado es `.env.example` sin valores y el
 correo personal se quitó de la guía de despliegue (sigue visible como autor de los commits).
+
+## 2026-10-19 · App en producción
+
+El usuario completó a mano el despliegue en el Dokploy anterior: registro de GHCR con un token `read:packages`,
+proveedor Docker, primer despliegue y secreto `DOKPLOY_DEPLOY_WEBHOOK` en GitHub. Verificación externa del agente:
+
+- `https://stenia.halonso.digital` con certificado de Let's Encrypt válido hasta el 2027-01-10; HTTP redirige a HTTPS.
+- `/api/health` responde `{"ok":true,"db":"ok"}`, así que las migraciones se aplicaron y la app alcanza Postgres.
+- Las rutas protegidas redirigen a `/login`; `/login`, `/registro`, `/privacidad`, `/creditos` y el manifiesto
+  responden 200; `/api/cron/checkins` sin secreto responde 401.
+- En el navegador (375 × 812) cargan los estilos y las fuentes Clash Grotesk y Switzer, sin errores en consola.
+
+Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone Cloudflare R2 por ahora.
