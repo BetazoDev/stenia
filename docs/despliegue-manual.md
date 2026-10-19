@@ -113,7 +113,7 @@ Si prefieres otra cuenta, crea ahí los mismos tres nombres.
 - El catálogo de ejercicios y los alimentos USDA se cargan solos la primera vez que se usan (generar rutina o abrir
   Nutrición). También se pueden lanzar desde `/settings/developer` → *Catálogos y traducciones*, junto con la
   traducción de nombres por glosario o por IA.
-- Fotos corporales: sin R2 se guardan cifradas en reposo dentro de Postgres y se sirven solo a su dueño. Para usar el
+- Fotos corporales: sin R2 se guardan dentro de Postgres (tabla `stored_file`) y se sirven solo a su dueño. Para usar el
   bucket privado añade `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET_PRIVATE`.
 - La tarea diaria `stenia-checkin-reminders` (GET `/api/cron/checkins` con `Authorization: Bearer $CRON_SECRET`)
   ahora recalcula metas de nutrición, crea revisiones vencidas, detecta disparadores y manda push.
