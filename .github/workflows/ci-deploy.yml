@@ -48,11 +48,21 @@ jobs:
           context: .
           file: infra/Dockerfile
           push: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.title=stenia-web
           tags: |
             ghcr.io/${{ steps.owner.outputs.lower }}/stenia-web:latest
             ghcr.io/${{ steps.owner.outputs.lower }}/stenia-web:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # GitHub no permite leer `secrets` dentro de `if:`; se expone como variable de entorno del paso.
       - name: Redesplegar en Dokploy
-        if: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK != '' }}
-        run: curl -fsS -X POST "${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}"
+        env:
+          DOKPLOY_DEPLOY_WEBHOOK: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
+        run: |
+          if [ -z "$DOKPLOY_DEPLOY_WEBHOOK" ]; then
+            echo "Sin DOKPLOY_DEPLOY_WEBHOOK: se omite el redespliegue automático."
+            exit 0
+          fi
+          curl -fsS -X POST "$DOKPLOY_DEPLOY_WEBHOOK"
