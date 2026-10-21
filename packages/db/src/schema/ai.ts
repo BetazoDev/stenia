@@ -3,7 +3,7 @@ import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text 
 import { createdAt, id, updatedAt } from './_shared';
 import { user } from './auth';
 
-export const aiProvider = pgEnum('ai_provider', ['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible']);
+export const aiProvider = pgEnum('ai_provider', ['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible', 'claude_code']);
 
 export type AiModelsJson = { planning: string; fast: string; vision: string; fallback: string };
 export type AiTaskParamsJson = { temperature: number; maxTokens: number };

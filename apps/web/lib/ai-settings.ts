@@ -39,9 +39,19 @@ export function providerFromEnv(): AiProvider | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** `AI_API_KEY` en el entorno sobrescribe la key cifrada en la base. */
-export function resolveApiKey(row: StoredAiSettings | null): { apiKey: string; source: 'env' | 'stored' } | null {
+/**
+ * `AI_API_KEY` en el entorno sobrescribe la key cifrada en la base. Con la suscripción de Claude la «key» es
+ * opcional: un token de `claude setup-token` (guardado o en `CLAUDE_CODE_OAUTH_TOKEN`) o, si no hay, el login
+ * local de Claude Code en el equipo del servidor.
+ */
+export function resolveApiKey(row: StoredAiSettings | null): { apiKey: string; source: 'env' | 'stored' | 'subscription' } | null {
   const e = env();
+  if (resolveProvider(row) === 'claude_code') {
+    const stored = row?.apiKeyEncrypted ? decryptSecret(row.apiKeyEncrypted, e.ENCRYPTION_KEY) : '';
+    // Solo cuenta como token si lo es: una API key de otro proveedor guardada antes se ignora.
+    if (stored.startsWith('sk-ant-oat')) return { apiKey: stored, source: 'stored' };
+    return { apiKey: e.CLAUDE_CODE_OAUTH_TOKEN ?? '', source: e.CLAUDE_CODE_OAUTH_TOKEN ? 'env' : 'subscription' };
+  }
   if (e.AI_API_KEY) return { apiKey: e.AI_API_KEY, source: 'env' };
   if (row?.apiKeyEncrypted) {
     return { apiKey: decryptSecret(row.apiKeyEncrypted, e.ENCRYPTION_KEY), source: 'stored' };

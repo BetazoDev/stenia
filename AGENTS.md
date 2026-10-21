@@ -57,6 +57,8 @@ docs/despliegue-manual.md  guía para desplegar desde la interfaz de Dokploy
 | `bun run scripts/import-exercises.ts` | Importa catálogos y espeja imágenes en R2 (`--no-mirror` sin R2) |
 | `bun run scripts/import-foods.ts` | Importa los alimentos USDA del archivo versionado (la app también lo hace sola) |
 | `bun run scripts/build-foods.ts` | Regenera `packages/catalog/data/usda-foods.json` desde USDA (necesita `unzip`) |
+| `pnpm claude auth login` / `auth status` | Claude Code incluido en el Agent SDK: login con la suscripción para el proveedor «Suscripción de Claude» |
+| `bun run scripts/eval-ai.ts` | Evalúa modelos con los prompts reales (rutina, plan, revisión, traducción) |
 
 ## Desarrollo local
 

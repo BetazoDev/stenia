@@ -7,6 +7,8 @@
  *   EVAL_PROVIDER=openai_compatible EVAL_BASE_URL=https://api.cloudflare.com/client/v4/accounts/<id>/ai/v1 \
  *   EVAL_API_KEY=… bun run scripts/eval-ai.ts --models=@cf/openai/gpt-oss-120b,@cf/google/gemma-4-26b-a4b-it
  *
+ *   Suscripción de Claude: EVAL_PROVIDER=claude_code bun run scripts/eval-ai.ts --models=claude-sonnet-5-5
+ *
  * Opciones: --tasks=routine,meal,checkin,translate  --json-schema (envía response_format json_schema)
  *           --header=nombre:valor (repetible)  --max-tokens=6000
  */
@@ -56,8 +58,9 @@ const { values } = parseArgs({
 });
 
 const provider = AiProvider.parse(process.env.EVAL_PROVIDER ?? 'openai_compatible');
-const apiKey = process.env.EVAL_API_KEY ?? '';
-if (!apiKey || !values.models) {
+// Con la suscripción de Claude la key es opcional: token de `claude setup-token` o login local.
+const apiKey = provider === 'claude_code' ? (process.env.CLAUDE_CODE_OAUTH_TOKEN ?? '') : (process.env.EVAL_API_KEY ?? '');
+if ((!apiKey && provider !== 'claude_code') || !values.models) {
   console.error('Falta EVAL_API_KEY en el entorno o --models=…');
   process.exit(1);
 }

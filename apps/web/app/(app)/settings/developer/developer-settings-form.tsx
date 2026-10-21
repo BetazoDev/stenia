@@ -1,14 +1,7 @@
 'use client';
 
-import {
-  AI_PROVIDER_LABELS,
-  AI_TASK_LABELS,
-  AiProvider,
-  AiTask,
-  DEFAULT_MODELS,
-  type AiSettingsInput,
-  type ConnectionTestResult,
-} from '@stenia/ai';
+import type { ConnectionTestResult } from '@stenia/ai';
+import { AI_PROVIDER_LABELS, AI_TASK_LABELS, AiProvider, AiTask, DEFAULT_MODELS, type AiSettingsInput } from '@stenia/ai/settings';
 import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -110,7 +103,15 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
           </Select>
         </Field>
 
-        <Field>
+        {settings.provider === 'claude_code' ? (
+          <p className="rounded-input border border-border bg-surface px-3.5 py-3 text-sm text-text-2">
+            Las llamadas corren en el equipo donde está el servidor, con tu cuenta de Claude: no se cobra por token, se usan
+            los límites de tu suscripción. Usa el login local de Claude Code o pega abajo el token de{' '}
+            <code className="text-text">claude setup-token</code>. Solo para uso personal.
+          </p>
+        ) : null}
+
+        <Field className={settings.provider === 'claude_code' ? 'hidden' : undefined}>
           <Label htmlFor="baseUrl">URL base {settings.provider === 'openai_compatible' ? '' : '(opcional)'}</Label>
           <Input
             id="baseUrl"
@@ -123,7 +124,7 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
         </Field>
 
         <Field>
-          <Label htmlFor="apiKey">API key</Label>
+          <Label htmlFor="apiKey">{settings.provider === 'claude_code' ? 'Token de suscripción (opcional)' : 'API key'}</Label>
           {keyFromEnv ? (
             <p className="text-sm text-text-2">
               <Chip tone="accent" className="mr-2">
@@ -149,7 +150,7 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="sk-…"
+                placeholder={settings.provider === 'claude_code' ? 'sk-ant-oat…' : 'sk-…'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />

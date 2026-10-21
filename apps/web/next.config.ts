@@ -35,7 +35,8 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: repoRoot,
   transpilePackages: ['@stenia/core', '@stenia/db', '@stenia/ai', '@stenia/catalog'],
-  serverExternalPackages: ['pg'],
+  // El Agent SDK lanza su propio ejecutable de Claude Code: no se empaqueta.
+  serverExternalPackages: ['pg', '@anthropic-ai/claude-agent-sdk'],
   typedRoutes: true,
   poweredByHeader: false,
   agentRules: false,

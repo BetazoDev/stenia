@@ -30,6 +30,8 @@ export function resolveModel(config: ModelConfig): LanguageModel {
       return createGoogleGenerativeAI({ apiKey: config.apiKey, baseURL })(config.modelId);
     case 'openrouter':
       return createOpenRouter({ apiKey: config.apiKey, baseURL })(config.modelId);
+    case 'claude_code':
+      throw new Error('La suscripción de Claude no usa el AI SDK: se llama con generateWithClaudeCode().');
     case 'openai_compatible': {
       if (!baseURL) throw new Error('El proveedor compatible con OpenAI necesita una URL base.');
       return createOpenAICompatible({

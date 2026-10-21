@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { estimateCostUsd, type AiProvider } from '@stenia/ai';
+import { SUBSCRIPTION_PROVIDERS, estimateCostUsd, type AiProvider } from '@stenia/ai';
 import { aiUsage } from '@stenia/db';
 
 import { getDb } from './db';
@@ -20,11 +20,14 @@ export type RecordUsageInput = {
 
 /** Registra tokens y costo estimado de cada llamada al LLM (tabla `ai_usage`). */
 export async function recordAiUsage(input: RecordUsageInput): Promise<string | null> {
-  const cost = estimateCostUsd(input.model, {
-    inputTokens: input.inputTokens,
-    outputTokens: input.outputTokens,
-    cachedInputTokens: input.cachedInputTokens ?? 0,
-  });
+  // Con suscripción no hay costo por token: se registran los tokens y el costo queda en cero.
+  const cost = SUBSCRIPTION_PROVIDERS.includes(input.provider as AiProvider)
+    ? { usd: 0, priced: true }
+    : estimateCostUsd(input.model, {
+        inputTokens: input.inputTokens,
+        outputTokens: input.outputTokens,
+        cachedInputTokens: input.cachedInputTokens ?? 0,
+      });
   const [row] = await getDb().insert(aiUsage).values({
     userId: input.userId,
     task: input.task,

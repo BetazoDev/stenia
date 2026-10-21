@@ -22,7 +22,8 @@ RUN pnpm --filter web build && pnpm --filter web build:migrate
 
 FROM node:24-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
+# STENIA_DEPLOYMENT=server impide usar la suscripción de Claude fuera de la Mac del usuario (términos de uso).
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1 STENIA_DEPLOYMENT=server
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static

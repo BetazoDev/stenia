@@ -9,7 +9,7 @@ import { budgetLevel, getMonthlyUsage, loadAiSettings, modelForTask, resolveApiK
 import { recordAiUsage } from './ai-usage';
 import { getDb } from './db';
 
-export type AiUnavailableReason = 'not_configured' | 'budget' | 'photos_disabled';
+export type AiUnavailableReason = 'not_configured' | 'budget' | 'photos_disabled' | 'subscription_local_only';
 
 export type AiResult<T> =
   | { ok: true; output: T; modelId: string }
@@ -18,8 +18,16 @@ export type AiResult<T> =
 export type AiStatus = { available: boolean; reason: AiUnavailableReason | null; sendPhotos: boolean; budget: 'ok' | 'warn' | 'blocked' };
 
 /** ¿Hay proveedor y key configurados, y presupuesto para esta función? */
+/** La suscripción de Claude solo puede usarse en la Mac del usuario, nunca en el servidor desplegado. */
+export function subscriptionBlocked(provider: string): boolean {
+  return provider === 'claude_code' && process.env.STENIA_DEPLOYMENT === 'server';
+}
+
 export async function aiStatus(fn?: AiFunction): Promise<AiStatus> {
   const row = await loadAiSettings();
+  if (subscriptionBlocked(resolveProvider(row))) {
+    return { available: false, reason: 'subscription_local_only', sendPhotos: row?.sendPhotos ?? false, budget: 'ok' };
+  }
   let key: ReturnType<typeof resolveApiKey> = null;
   try {
     key = resolveApiKey(row);
@@ -38,6 +46,7 @@ const UNAVAILABLE_MESSAGES: Record<AiUnavailableReason, string> = {
   not_configured: 'La IA no está configurada: un administrador debe cargar la API key en Configuración de desarrollador.',
   budget: 'Se alcanzó el presupuesto mensual de IA; esta función se reanuda el próximo mes.',
   photos_disabled: 'El envío de fotos al LLM está apagado en Configuración de desarrollador.',
+  subscription_local_only: 'La suscripción de Claude solo funciona en tu Mac; en el servidor configura una API key.',
 };
 
 /** Quita el contenido escrito por el usuario antes de guardar el prompt en el registro de depuración. */

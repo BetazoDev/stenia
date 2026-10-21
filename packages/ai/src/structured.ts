@@ -1,6 +1,7 @@
 import { generateText, NoOutputGeneratedError, Output, type ModelMessage } from 'ai';
 import type { z } from 'zod';
 
+import { generateWithClaudeCode } from './claude-code';
 import { describeAiError } from './errors';
 import { resolveModel, type ModelConfig } from './provider';
 
@@ -26,6 +27,17 @@ export type StructuredFailure = { ok: false; message: string; usage: StructuredU
  * registrar en `ai_usage`. Los reintentos por validación de negocio los hace quien llama.
  */
 export async function generateStructured<T>(req: StructuredRequest<T>): Promise<StructuredSuccess<T> | StructuredFailure> {
+  if (req.model.provider === 'claude_code') {
+    return generateWithClaudeCode({
+      modelId: req.model.modelId,
+      oauthToken: req.model.apiKey,
+      params: req.params,
+      schema: req.schema,
+      system: req.system,
+      prompt: req.prompt,
+      messages: req.messages,
+    });
+  }
   const started = performance.now();
   const empty: StructuredUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   try {

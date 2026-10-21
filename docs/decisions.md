@@ -245,3 +245,21 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
   confianza; nunca entra en metas, revisiones ni tendencias.
 - **Sin conexión verificado** con Playwright contra un build de producción (`e2e/offline.spec.ts`): la sesión en vivo
   abre desde caché y el resto muestra `/sin-conexion`.
+
+## 2026-10-21 · IA con la suscripción de Claude durante las pruebas
+
+- Por decisión del usuario, mientras se prueba la app las llamadas de IA usan su cuenta de Claude en lugar de pagar
+  por token. Nuevo proveedor `claude_code` («Suscripción de Claude»): el Claude Agent SDK lanza el Claude Code que
+  trae incluido, autenticado con `pnpm claude auth login` (llavero de macOS) o con `CLAUDE_CODE_OAUTH_TOKEN` de
+  `claude setup-token`. El entorno del subproceso nunca lleva `ANTHROPIC_API_KEY`, así que no hay cobro por token.
+- Cada llamada es un turno aislado: sin herramientas, MCP, skills, ajustes ni CLAUDE.md, en un directorio temporal
+  vacío y sin guardar la sesión; salida con JSON Schema (`outputFormat`) y validación zod. Las imágenes van como
+  bloques base64.
+- **Solo en la Mac del usuario.** Los términos de Anthropic permiten el uso personal con su propio login, no enrutar
+  peticiones de otras personas ni usar la suscripción en un servidor. La imagen de Docker define
+  `STENIA_DEPLOYMENT=server` y ahí el proveedor queda bloqueado con un mensaje para usar una API key. Si la app se
+  abre a otros usuarios, se pasa a API key.
+- Costo registrado en cero y tokens contados (las llamadas consumen los límites de 5 horas y semanales de la
+  suscripción). Modelos por defecto: Sonnet 5.5 para planificar y visión, Haiku 5.5 para lo rápido.
+- Investigación previa de opciones gratuitas: Cloudflare Workers AI quedó como alternativa sin costo y sin retención
+  de datos; `scripts/eval-ai.ts` sirve para comparar proveedores con los prompts reales.

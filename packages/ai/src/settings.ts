@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const AiProvider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible']);
+export const AiProvider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible', 'claude_code']);
 export type AiProvider = z.infer<typeof AiProvider>;
 
 export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
@@ -9,7 +9,11 @@ export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
   google: 'Google',
   openrouter: 'OpenRouter',
   openai_compatible: 'Compatible con OpenAI (URL base propia)',
+  claude_code: 'Suscripción de Claude (en este equipo, sin costo por token)',
 };
+
+/** Proveedores que no cobran por token (usan los límites de una suscripción). */
+export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude_code'];
 
 /** Tareas con modelo configurable (sección 11 del PRD). */
 export const AiTask = z.enum(['planning', 'fast', 'vision', 'fallback']);
@@ -94,6 +98,13 @@ export const DEFAULT_MODELS: Record<AiProvider, AiModels> = {
     fallback: 'openai/gpt-6-luna',
   },
   openai_compatible: { planning: '', fast: '', vision: '', fallback: '' },
+  // Sonnet para planificar porque Opus no está en todos los planes; con Max puede cambiarse a claude-opus-5-5.
+  claude_code: {
+    planning: 'claude-sonnet-5-5',
+    fast: 'claude-haiku-5-5',
+    vision: 'claude-sonnet-5-5',
+    fallback: 'claude-haiku-5-5',
+  },
 };
 
 export function defaultSettingsFor(provider: AiProvider): AiSettingsInput {

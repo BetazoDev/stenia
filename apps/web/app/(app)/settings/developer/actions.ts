@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
+import { subscriptionBlocked } from '@/lib/ai';
 import { loadAiSettings, modelForTask, resolveApiKey, resolveProvider } from '@/lib/ai-settings';
 import { recordAiUsage } from '@/lib/ai-usage';
 import { getDb } from '@/lib/db';
@@ -86,6 +87,9 @@ export async function testConnectionAction(rawTask: unknown): Promise<Connection
 
   const row = await loadAiSettings();
   const provider = resolveProvider(row);
+  if (subscriptionBlocked(provider)) {
+    return { ok: false, latencyMs: 0, modelId: '', message: 'La suscripción de Claude solo funciona en tu Mac; en el servidor configura una API key.' };
+  }
   let key: ReturnType<typeof resolveApiKey>;
   try {
     key = resolveApiKey(row);

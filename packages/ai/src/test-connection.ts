@@ -1,5 +1,7 @@
 import { generateText } from 'ai';
+import { z } from 'zod';
 
+import { generateWithClaudeCode } from './claude-code';
 import { describeAiError } from './errors';
 import { estimateCostUsd } from './pricing';
 import { pingPrompt } from './prompts';
@@ -12,6 +14,19 @@ export type ConnectionTestResult =
 /** Llamada mínima al modelo para validar key, URL base y modelo. */
 export async function testConnection(config: ModelConfig): Promise<ConnectionTestResult> {
   const startedAt = performance.now();
+  if (config.provider === 'claude_code') {
+    const result = await generateWithClaudeCode({
+      modelId: config.modelId,
+      oauthToken: config.apiKey,
+      params: { temperature: 0, maxTokens: 64, timeoutMs: 90_000 },
+      schema: z.object({ ok: z.boolean() }),
+      system: 'Responde solo con el JSON pedido.',
+      prompt: 'Devuelve {"ok": true}.',
+    });
+    return result.ok
+      ? { ok: true, latencyMs: result.latencyMs, modelId: config.modelId, usage: { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens }, costUsd: 0 }
+      : { ok: false, latencyMs: result.latencyMs, modelId: config.modelId, message: result.message };
+  }
   try {
     const model = resolveModel(config);
     const { system, prompt } = pingPrompt.render({});

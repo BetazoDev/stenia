@@ -22,7 +22,8 @@
     "db:seed": "bun run scripts/seed.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:dev": "bun run scripts/dev-db.ts"
+    "db:dev": "bun run scripts/dev-db.ts",
+    "claude": "bun run scripts/claude.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
