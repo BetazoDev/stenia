@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { TicketReader } from '@/components/progress/ticket-reader';
-import { aiStatus } from '@/lib/ai';
+import { aiStatus, aiUnavailableMessage } from '@/lib/ai';
 import { localDateString } from '@/lib/dates';
 import { requireSession } from '@/lib/session';
 
@@ -14,9 +14,7 @@ export default async function InbodyPage() {
   const status = await aiStatus('inbody_extraction');
   const ready = status.available && status.sendPhotos;
   const message = !status.available
-    ? status.reason === 'budget'
-      ? 'Se alcanzó el presupuesto mensual de IA.'
-      : 'La IA no está configurada.'
+    ? aiUnavailableMessage(status.reason)
     : !status.sendPhotos
       ? 'El envío de imágenes a la IA está apagado en Configuración de desarrollador.'
       : null;

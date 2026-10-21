@@ -5,11 +5,12 @@ import { aiPromptLog } from '@stenia/db';
 import type { ModelMessage } from '@stenia/ai';
 import type { z } from 'zod';
 
+import { bridgeGenerate, bridgeState, isSubscriptionOwner, usesBridge } from './ai-bridge';
 import { budgetLevel, getMonthlyUsage, loadAiSettings, modelForTask, resolveApiKey, resolveProvider } from './ai-settings';
 import { recordAiUsage } from './ai-usage';
 import { getDb } from './db';
 
-export type AiUnavailableReason = 'not_configured' | 'budget' | 'photos_disabled' | 'subscription_local_only';
+export type AiUnavailableReason = 'not_configured' | 'budget' | 'photos_disabled' | 'bridge_offline' | 'subscription_owner_only';
 
 export type AiResult<T> =
   | { ok: true; output: T; modelId: string }
@@ -18,15 +19,12 @@ export type AiResult<T> =
 export type AiStatus = { available: boolean; reason: AiUnavailableReason | null; sendPhotos: boolean; budget: 'ok' | 'warn' | 'blocked' };
 
 /** ¿Hay proveedor y key configurados, y presupuesto para esta función? */
-/** La suscripción de Claude solo puede usarse en la Mac del usuario, nunca en el servidor desplegado. */
-export function subscriptionBlocked(provider: string): boolean {
-  return provider === 'claude_code' && process.env.STENIA_DEPLOYMENT === 'server';
-}
-
 export async function aiStatus(fn?: AiFunction): Promise<AiStatus> {
   const row = await loadAiSettings();
-  if (subscriptionBlocked(resolveProvider(row))) {
-    return { available: false, reason: 'subscription_local_only', sendPhotos: row?.sendPhotos ?? false, budget: 'ok' };
+  // En el servidor, la suscripción de Claude solo está disponible si la Mac del usuario está conectada al puente.
+  if (usesBridge(resolveProvider(row))) {
+    const state = await bridgeState();
+    return { available: state.online, reason: state.online ? null : 'bridge_offline', sendPhotos: row?.sendPhotos ?? false, budget: 'ok' };
   }
   let key: ReturnType<typeof resolveApiKey> = null;
   try {
@@ -46,8 +44,14 @@ const UNAVAILABLE_MESSAGES: Record<AiUnavailableReason, string> = {
   not_configured: 'La IA no está configurada: un administrador debe cargar la API key en Configuración de desarrollador.',
   budget: 'Se alcanzó el presupuesto mensual de IA; esta función se reanuda el próximo mes.',
   photos_disabled: 'El envío de fotos al LLM está apagado en Configuración de desarrollador.',
-  subscription_local_only: 'La suscripción de Claude solo funciona en tu Mac; en el servidor configura una API key.',
+  bridge_offline: 'Tu Mac no está conectada al puente de IA (pnpm ai:bridge); se usa la versión sin IA.',
+  subscription_owner_only: 'La IA con suscripción de Claude solo está disponible para la cuenta dueña.',
 };
+
+/** Texto para la interfaz cuando una función de IA no está disponible. */
+export function aiUnavailableMessage(reason: AiUnavailableReason | null): string | null {
+  return reason ? UNAVAILABLE_MESSAGES[reason] : null;
+}
 
 /** Quita el contenido escrito por el usuario antes de guardar el prompt en el registro de depuración. */
 function redact(text: string): string {
@@ -86,18 +90,25 @@ export async function runAi<T>(args: RunAiArgs<T>): Promise<AiResult<T>> {
   const primary = modelForTask(row, provider, task);
   const fallback = row?.models.fallback?.trim() || null;
   const models = [primary, ...(fallback && fallback !== primary ? [fallback] : [])];
+  const bridged = usesBridge(provider);
+  if (bridged && !(await isSubscriptionOwner(args.userId))) {
+    return { ok: false, reason: 'subscription_owner_only', message: UNAVAILABLE_MESSAGES.subscription_owner_only };
+  }
 
   let lastMessage = 'Error desconocido.';
   for (const modelId of models) {
-    const result = await generateStructured({
-      model: { provider, apiKey: key.apiKey, modelId, baseUrl: row?.baseUrl ?? undefined },
-      params: modelId === primary ? params : (row?.params.fallback ?? params),
-      schema: args.schema,
-      system: args.system,
-      prompt: args.prompt,
-      messages: args.messages,
-      schemaName: args.promptId,
-    });
+    const callParams = modelId === primary ? params : (row?.params.fallback ?? params);
+    const result = bridged
+      ? await bridgeGenerate({ userId: args.userId, fn: args.fn, modelId, params: callParams, schema: args.schema, system: args.system, prompt: args.prompt, messages: args.messages })
+      : await generateStructured({
+          model: { provider, apiKey: key.apiKey, modelId, baseUrl: row?.baseUrl ?? undefined },
+          params: callParams,
+          schema: args.schema,
+          system: args.system,
+          prompt: args.prompt,
+          messages: args.messages,
+          schemaName: args.promptId,
+        });
     const usageId = await recordAiUsage({
       userId: args.userId,
       task: args.fn,
@@ -125,6 +136,8 @@ export async function runAi<T>(args: RunAiArgs<T>): Promise<AiResult<T>> {
     }
     if (result.ok) return { ok: true, output: result.output, modelId };
     lastMessage = result.message;
+    // Si la Mac no contestó, el modelo de respaldo tampoco lo hará: no se duplica la espera.
+    if (bridged && /no respondió|no está conectada/.test(result.message)) break;
   }
   return { ok: false, reason: 'error', message: lastMessage };
 }

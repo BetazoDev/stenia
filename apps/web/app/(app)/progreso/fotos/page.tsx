@@ -11,7 +11,7 @@ import { PhotoCompare } from '@/components/progress/photo-compare';
 import { PhotoEstimate } from '@/components/progress/photo-estimate';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
-import { aiStatus } from '@/lib/ai';
+import { aiStatus, aiUnavailableMessage } from '@/lib/ai';
 import { listMeasurements, listPhotos } from '@/lib/body';
 import { getProfile } from '@/lib/profile';
 import { requireSession } from '@/lib/session';
@@ -26,7 +26,7 @@ export default async function PhotosPage() {
   const estimateReason = !hasPoses
     ? 'Necesitas al menos una foto de frente y una de perfil.'
     : !status.available
-      ? 'La IA no está configurada o se alcanzó el presupuesto.'
+      ? (aiUnavailableMessage(status.reason) ?? 'La IA no está disponible.')
       : !status.sendPhotos
         ? 'El envío de fotos a la IA está apagado en Configuración de desarrollador.'
         : null;

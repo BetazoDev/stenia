@@ -256,9 +256,18 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
   vacío y sin guardar la sesión; salida con JSON Schema (`outputFormat`) y validación zod. Las imágenes van como
   bloques base64.
 - **Solo en la Mac del usuario.** Los términos de Anthropic permiten el uso personal con su propio login, no enrutar
-  peticiones de otras personas ni usar la suscripción en un servidor. La imagen de Docker define
-  `STENIA_DEPLOYMENT=server` y ahí el proveedor queda bloqueado con un mensaje para usar una API key. Si la app se
-  abre a otros usuarios, se pasa a API key.
+  peticiones de otras personas ni usar la suscripción en un servidor. Como el usuario usa la app desplegada desde su
+  teléfono, el servidor (`STENIA_DEPLOYMENT=server` en la imagen) no llama a Claude: encola la petición en
+  `ai_bridge_request` y un proceso en la Mac (`pnpm ai:bridge`) la reclama por HTTPS saliente (sondeo largo de 25 s),
+  la resuelve con la suscripción y devuelve el resultado, que el servidor valida con zod.
+- **Puente: seguridad y privacidad.** Vinculación por código: la Mac genera su token, manda solo el hash y el admin
+  confirma el código en `/settings/developer`; el token vive en `.env.local` de la Mac y nunca se muestra. Solo la
+  cuenta admin usa la suscripción; otras cuentas reciben el respaldo sin IA. El prompt y las imágenes se borran de la
+  cola al terminar y las filas, al día siguiente.
+- **Mac apagada.** Si la Mac no pidió trabajo en 70 s, el puente se marca desconectado y la IA no está disponible: la
+  app usa al momento las rutinas, planes y revisiones por reglas, sin esperar. `pnpm ai:bridge install` deja el
+  proceso como servicio de macOS (launchd) que arranca al iniciar sesión.
+- Si la app se abre a otros usuarios, se pasa a una API key.
 - Costo registrado en cero y tokens contados (las llamadas consumen los límites de 5 horas y semanales de la
   suscripción). Modelos por defecto: Sonnet 5.5 para planificar y visión, Haiku 5.5 para lo rápido.
 - Investigación previa de opciones gratuitas: Cloudflare Workers AI quedó como alternativa sin costo y sin retención

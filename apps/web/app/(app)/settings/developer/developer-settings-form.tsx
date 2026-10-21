@@ -19,12 +19,14 @@ type Props = {
   keyFromEnv: boolean;
   providerFromEnv: AiProvider | null;
   encryptionConfigured: boolean;
+  /** La app corre en el servidor desplegado (la suscripción pasa por el puente). */
+  serverDeployment: boolean;
 };
 
 const TASKS = AiTask.options;
 const PROVIDERS = AiProvider.options;
 
-export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerFromEnv, encryptionConfigured }: Props) {
+export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerFromEnv, encryptionConfigured, serverDeployment }: Props) {
   const [settings, setSettings] = useState<AiSettingsInput>(initial);
   const [apiKey, setApiKey] = useState('');
   const [replacingKey, setReplacingKey] = useState(!keyLast4);
@@ -105,9 +107,9 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
 
         {settings.provider === 'claude_code' ? (
           <p className="rounded-input border border-border bg-surface px-3.5 py-3 text-sm text-text-2">
-            Las llamadas corren en el equipo donde está el servidor, con tu cuenta de Claude: no se cobra por token, se usan
-            los límites de tu suscripción. Usa el login local de Claude Code o pega abajo el token de{' '}
-            <code className="text-text">claude setup-token</code>. Solo para uso personal.
+            {serverDeployment
+              ? 'En este servidor las llamadas pasan por el puente a tu Mac y usan tu cuenta de Claude: sin costo por token, con los límites de tu suscripción. Solo para tu cuenta.'
+              : 'Esta instancia corre en tu Mac: las llamadas van directo a tu cuenta de Claude (pnpm claude auth login). Sin costo por token.'}
           </p>
         ) : null}
 
@@ -123,8 +125,8 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
           <FieldHint>Solo para proveedores compatibles con OpenAI o proxies propios.</FieldHint>
         </Field>
 
-        <Field>
-          <Label htmlFor="apiKey">{settings.provider === 'claude_code' ? 'Token de suscripción (opcional)' : 'API key'}</Label>
+        <Field className={settings.provider === 'claude_code' ? 'hidden' : undefined}>
+          <Label htmlFor="apiKey">API key</Label>
           {keyFromEnv ? (
             <p className="text-sm text-text-2">
               <Chip tone="accent" className="mr-2">
@@ -150,7 +152,7 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder={settings.provider === 'claude_code' ? 'sk-ant-oat…' : 'sk-…'}
+                placeholder="sk-…"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />

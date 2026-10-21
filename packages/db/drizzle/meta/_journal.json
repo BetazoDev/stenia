@@ -29,6 +29,13 @@
       "when": 1792620669005,
       "tag": "0003_proveedor_claude",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792621549902,
+      "tag": "0004_puente_ia",
+      "breakpoints": true
     }
   ]
 }

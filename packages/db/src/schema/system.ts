@@ -1,4 +1,4 @@
-import { boolean, customType, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, customType, index, integer, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, tz, updatedAt } from './_shared';
 import { user } from './auth';
@@ -53,4 +53,31 @@ export const storedFile = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('stored_file_user_idx').on(t.userId)],
+);
+
+/**
+ * Cola del puente de IA: peticiones que el servidor no resuelve solo y que contesta la Mac del usuario con su
+ * suscripción de Claude. El `payload` (prompt e imágenes) se borra al terminar; las filas viejas se eliminan.
+ */
+export const aiBridgeRequest = pgTable(
+  'ai_bridge_request',
+  {
+    id: id(),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    fn: text('fn').notNull(),
+    modelId: text('model_id').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    /** pending | running | done | error | expired */
+    status: text('status').notNull().default('pending'),
+    output: jsonb('output').$type<unknown>(),
+    error: text('error'),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    cachedInputTokens: integer('cached_input_tokens').notNull().default(0),
+    latencyMs: integer('latency_ms'),
+    createdAt: createdAt(),
+    claimedAt: tz('claimed_at'),
+    finishedAt: tz('finished_at'),
+  },
+  (t) => [index('ai_bridge_request_status_idx').on(t.status, t.createdAt)],
 );

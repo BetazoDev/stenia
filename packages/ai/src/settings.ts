@@ -9,7 +9,7 @@ export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
   google: 'Google',
   openrouter: 'OpenRouter',
   openai_compatible: 'Compatible con OpenAI (URL base propia)',
-  claude_code: 'Suscripción de Claude (en este equipo, sin costo por token)',
+  claude_code: 'Suscripción de Claude (tu Mac, sin costo por token)',
 };
 
 /** Proveedores que no cobran por token (usan los límites de una suscripción). */

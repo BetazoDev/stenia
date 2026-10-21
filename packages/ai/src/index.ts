@@ -6,6 +6,7 @@ export * from './errors';
 export * from './prompts/index';
 export * from './test-connection';
 export * from './structured';
-export { generateWithClaudeCode } from './claude-code';
+export { generateWithClaudeCode, toContentBlocks, type ContentBlock } from './claude-code';
+export * from './bridge';
 export * from './tasks';
 export type { ModelMessage } from 'ai';

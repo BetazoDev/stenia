@@ -119,3 +119,13 @@ Si prefieres otra cuenta, crea ahí los mismos tres nombres.
   ahora recalcula metas de nutrición, crea revisiones vencidas, detecta disparadores y manda push.
 - Visión (tickets InBody y % de grasa por foto): requiere un modelo con visión en *Modelos por tarea → visión* y el
   interruptor *Enviar fotos al LLM* encendido. El conteo de repeticiones corre en el teléfono y no usa la IA.
+
+## 10. IA con tu suscripción de Claude (puente con tu Mac)
+
+1. Redespliega la app (las migraciones `0003` y `0004` se aplican solas).
+2. En la Mac: `pnpm claude auth login` (una vez) y `pnpm claude auth status` para confirmar.
+3. En la app: `/settings/developer` → proveedor **Suscripción de Claude (tu Mac, sin costo por token)** → Guardar.
+4. En la Mac, dentro de la carpeta del repo: `pnpm ai:bridge setup` y escribe en la app el código que aparece.
+5. `pnpm ai:bridge install` para que el puente arranque solo al iniciar sesión (bitácora en
+   `~/Library/Logs/stenia-ai-bridge.log`). Para quitarlo: `pnpm ai:bridge uninstall`.
+6. La Mac debe estar encendida y sin dormir para atender peticiones; si no, la app usa las versiones sin IA.

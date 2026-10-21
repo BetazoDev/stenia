@@ -19,6 +19,10 @@ import type { CallParams, StructuredFailure, StructuredSuccess, StructuredUsage 
 
 export type ClaudeCodeRequest<T> = {
   modelId: string;
+  /** JSON Schema ya generado (lo manda el servidor por el puente); si falta, se deriva de `schema`. */
+  jsonSchema?: Record<string, unknown> | undefined;
+  /** Bloques ya convertidos (texto e imágenes base64), alternativa a `messages`. */
+  content?: ContentBlock[] | undefined;
   /** Token de `claude setup-token`; vacío para usar el login local de Claude Code. */
   oauthToken?: string | undefined;
   params: CallParams;
@@ -34,7 +38,7 @@ function sandbox(): string {
   return sandboxDir;
 }
 
-type ContentBlock =
+export type ContentBlock =
   | { type: 'text'; text: string }
   | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string } };
 
@@ -82,7 +86,7 @@ export async function generateWithClaudeCode<T>(req: ClaudeCodeRequest<T>): Prom
     return fail('No está instalado el Claude Agent SDK en el servidor.');
   }
 
-  const schema = z.toJSONSchema(req.schema, { target: 'draft-7', io: 'output' }) as Record<string, unknown>;
+  const schema = req.jsonSchema ?? (z.toJSONSchema(req.schema, { target: 'draft-7', io: 'output' }) as Record<string, unknown>);
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), req.params.timeoutMs ?? 180_000);
 
@@ -102,13 +106,10 @@ export async function generateWithClaudeCode<T>(req: ClaudeCodeRequest<T>): Prom
     ...(req.oauthToken ? { CLAUDE_CODE_OAUTH_TOKEN: req.oauthToken } : {}),
   };
 
-  const prompt: string | AsyncIterable<SDKUserMessage> = req.messages
+  const blocks = req.content ?? (req.messages ? toContentBlocks(req.messages) : null);
+  const prompt: string | AsyncIterable<SDKUserMessage> = blocks
     ? (async function* () {
-        yield {
-          type: 'user' as const,
-          message: { role: 'user' as const, content: toContentBlocks(req.messages ?? []) },
-          parent_tool_use_id: null,
-        };
+        yield { type: 'user' as const, message: { role: 'user' as const, content: blocks }, parent_tool_use_id: null };
       })()
     : (req.prompt ?? '');
 

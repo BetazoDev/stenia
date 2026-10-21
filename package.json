@@ -23,7 +23,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:dev": "bun run scripts/dev-db.ts",
-    "claude": "bun run scripts/claude.ts"
+    "claude": "bun run scripts/claude.ts",
+    "ai:bridge": "bun run scripts/ai-bridge.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

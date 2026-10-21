@@ -12,7 +12,7 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { subscriptionBlocked } from '@/lib/ai';
+import { approvePairing, bridgeGenerate, unpairBridge, usesBridge } from '@/lib/ai-bridge';
 import { loadAiSettings, modelForTask, resolveApiKey, resolveProvider } from '@/lib/ai-settings';
 import { recordAiUsage } from '@/lib/ai-usage';
 import { getDb } from '@/lib/db';
@@ -87,8 +87,22 @@ export async function testConnectionAction(rawTask: unknown): Promise<Connection
 
   const row = await loadAiSettings();
   const provider = resolveProvider(row);
-  if (subscriptionBlocked(provider)) {
-    return { ok: false, latencyMs: 0, modelId: '', message: 'La suscripción de Claude solo funciona en tu Mac; en el servidor configura una API key.' };
+  if (usesBridge(provider)) {
+    const modelId = modelForTask(row, provider, task.data);
+    const r = await bridgeGenerate({
+      userId: session.user.id,
+      fn: 'connection_test',
+      modelId,
+      params: { temperature: 0, maxTokens: 64, timeoutMs: 90_000 },
+      schema: z.object({ ok: z.boolean() }),
+      system: 'Responde solo con el JSON pedido.',
+      prompt: 'Devuelve {"ok": true}.',
+    });
+    await recordAiUsage({ userId: session.user.id, task: 'connection_test', provider, model: modelId, inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens, latencyMs: r.latencyMs, ok: r.ok, error: r.ok ? null : r.message });
+    revalidatePath('/settings/developer');
+    return r.ok
+      ? { ok: true, latencyMs: r.latencyMs, modelId, usage: { inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens }, costUsd: 0 }
+      : { ok: false, latencyMs: r.latencyMs, modelId, message: r.message };
   }
   let key: ReturnType<typeof resolveApiKey>;
   try {
@@ -130,4 +144,20 @@ export async function startJobAction(type: string): Promise<ActionResult> {
   const result = await startJob(parsed.data, session.user.id);
   revalidatePath('/settings/developer');
   return result.ok ? { ok: true } : { ok: false, message: result.message };
+}
+
+export async function approveBridgeAction(code: string): Promise<ActionResult> {
+  await requireAdmin();
+  const parsed = z.string().trim().min(4).max(12).safeParse(code);
+  if (!parsed.success) return { ok: false, message: 'Escribe el código que muestra tu Mac.' };
+  const result = await approvePairing(parsed.data);
+  revalidatePath('/settings/developer');
+  return result.ok ? { ok: true, message: `Mac vinculada: ${result.worker}.` } : result;
+}
+
+export async function unpairBridgeAction(): Promise<ActionResult> {
+  await requireAdmin();
+  await unpairBridge();
+  revalidatePath('/settings/developer');
+  return { ok: true };
 }
