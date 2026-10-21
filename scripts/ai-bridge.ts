@@ -57,7 +57,7 @@ async function post(url: string, token: string | null, pathname: string, body: u
 }
 
 async function setup() {
-  const url = (values.url ?? process.env.AI_BRIDGE_URL ?? 'https://stenia.halonso.digital').replace(/\/$/, '');
+  const url = (values.url ?? 'https://stenia.halonso.digital').replace(/\/$/, '');
   const token = newBridgeToken();
   const code = newPairingCode();
   const res = await post(url, null, '/api/ai-bridge/pair', { code, tokenHash: hashBridgeToken(token), worker: WORKER }).catch(() => null);
