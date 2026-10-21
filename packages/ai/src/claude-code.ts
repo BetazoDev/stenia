@@ -66,7 +66,7 @@ export function toContentBlocks(messages: ModelMessage[]): ContentBlock[] {
   return blocks;
 }
 
-const AUTH_HINT = 'Inicia sesión con tu cuenta de Claude en este equipo (claude setup-token) y guarda el token en Configuración de desarrollador.';
+const AUTH_HINT = 'Inicia sesión con tu cuenta de Claude en este equipo: pnpm claude auth login (o guarda el token de pnpm claude setup-token).';
 
 export async function generateWithClaudeCode<T>(req: ClaudeCodeRequest<T>): Promise<StructuredSuccess<T> | StructuredFailure> {
   const started = performance.now();

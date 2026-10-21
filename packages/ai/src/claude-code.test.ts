@@ -55,7 +55,7 @@ describe('suscripción de Claude', () => {
     nextMessages = [{ type: 'assistant', error: 'authentication_failed', message: { content: [] } }, result({ subtype: 'error_during_execution', is_error: true })];
     const r = await generateWithClaudeCode({ modelId: 'm', params: { temperature: 0, maxTokens: 64 }, schema: z.object({ ok: z.boolean() }), system: 's', prompt: 'p' });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toMatch(/setup-token/);
+    if (!r.ok) expect(r.message).toMatch(/pnpm claude auth login/);
   });
 
   it('convierte texto e imágenes del AI SDK a bloques de mensajes', () => {
