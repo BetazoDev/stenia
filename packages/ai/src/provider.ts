@@ -12,6 +12,10 @@ export type ModelConfig = {
   apiKey: string;
   modelId: string;
   baseUrl?: string | undefined;
+  /** Solo compatible con OpenAI: el endpoint acepta `response_format: json_schema` (si no, se usa json_object). */
+  structuredOutputs?: boolean | undefined;
+  /** Solo compatible con OpenAI: cabeceras extra (p. ej. `cf-aig-gateway-id` en Workers AI). */
+  headers?: Record<string, string> | undefined;
 };
 
 /** Construye el modelo del Vercel AI SDK para el proveedor elegido. Solo se llama desde el servidor. */
@@ -28,9 +32,13 @@ export function resolveModel(config: ModelConfig): LanguageModel {
       return createOpenRouter({ apiKey: config.apiKey, baseURL })(config.modelId);
     case 'openai_compatible': {
       if (!baseURL) throw new Error('El proveedor compatible con OpenAI necesita una URL base.');
-      return createOpenAICompatible({ name: 'openai-compatible', apiKey: config.apiKey, baseURL })(
-        config.modelId,
-      );
+      return createOpenAICompatible({
+        name: 'openai-compatible',
+        apiKey: config.apiKey,
+        baseURL,
+        supportsStructuredOutputs: config.structuredOutputs ?? false,
+        ...(config.headers ? { headers: config.headers } : {}),
+      })(config.modelId);
     }
   }
 }

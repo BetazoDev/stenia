@@ -429,6 +429,9 @@ importers:
 
   scripts:
     dependencies:
+      '@stenia/ai':
+        specifier: workspace:*
+        version: link:../packages/ai
       '@stenia/catalog':
         specifier: workspace:*
         version: link:../packages/catalog
