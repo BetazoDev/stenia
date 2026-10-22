@@ -62,8 +62,12 @@ async function setup() {
   const code = newPairingCode();
   const res = await post(url, null, '/api/ai-bridge/pair', { code, tokenHash: hashBridgeToken(token), worker: WORKER }).catch(() => null);
   if (!res?.ok) {
-    const text = res ? ((await res.json().catch(() => ({}))) as { message?: string }).message : 'sin respuesta';
-    console.error(`No se pudo registrar la vinculación en ${url}: ${text}`);
+    const detail = !res
+      ? 'el servidor no respondió (revisa la URL o tu conexión)'
+      : res.status === 404
+        ? 'la app desplegada todavía no tiene el puente; vuelve a desplegarla en Dokploy y repite este paso'
+        : (((await res.json().catch(() => ({}))) as { message?: string }).message ?? `respondió ${res.status}`);
+    console.error(`No se pudo registrar la vinculación en ${url}: ${detail}.`);
     process.exit(1);
   }
   setEnvValues({ AI_BRIDGE_URL: url, AI_BRIDGE_TOKEN: token });
