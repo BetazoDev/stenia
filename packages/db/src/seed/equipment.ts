@@ -1,3 +1,5 @@
+import { sql } from 'drizzle-orm';
+
 import { equipment } from '../schema/equipment';
 import type { Db } from '../client';
 
@@ -68,10 +70,10 @@ export async function seedEquipment(db: Db): Promise<number> {
     .onConflictDoUpdate({
       target: equipment.slug,
       set: {
-        category: equipment.category,
-        nameEs: equipment.nameEs,
-        nameEn: equipment.nameEn,
-        sortOrder: equipment.sortOrder,
+        category: sql`excluded.category`,
+        nameEs: sql`excluded.name_es`,
+        nameEn: sql`excluded.name_en`,
+        sortOrder: sql`excluded.sort_order`,
       },
     });
   return EQUIPMENT_SEED.length;

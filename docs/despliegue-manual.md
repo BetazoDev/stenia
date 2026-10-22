@@ -109,7 +109,8 @@ Si prefieres otra cuenta, crea ahí los mismos tres nombres.
 
 ## 9. Después de las fases 1–4
 
-- Las migraciones nuevas se aplican solas al arrancar el contenedor (`Migraciones aplicadas desde /app/drizzle`).
+- Las migraciones nuevas se aplican solas al arrancar el contenedor (`Migraciones aplicadas desde /app/drizzle`), y
+  enseguida se siembra el catálogo de equipamiento (`Equipamiento sembrado: 48 elementos.`).
 - El catálogo de ejercicios y los alimentos USDA se cargan solos la primera vez que se usan (generar rutina o abrir
   Nutrición). También se pueden lanzar desde `/settings/developer` → *Catálogos y traducciones*, junto con la
   traducción de nombres por glosario o por IA.

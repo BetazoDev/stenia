@@ -305,3 +305,11 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
   cubre ese caso sin tocar el de la cuenta dueña.
 - Next.js sube de 16.4.0 a 16.4.1: `pnpm audit` marcó avisos críticos (ejecución remota sin autenticación) en
   `>=16.0.0 <=16.4.0`, y el build se detenía.
+
+## 2026-10-22 · Equipamiento sembrado al arrancar
+
+- En producción la tabla `equipment` estaba vacía: `pnpm db:seed` solo existía como comando local y el servidor no
+  tiene forma de correrlo. Sin equipamiento no se puede configurar el gimnasio (y sin gimnasio no hay rutina) ni
+  importar ejercicios. Ahora `apps/web/migrate.mjs` siembra el equipamiento después de las migraciones en cada
+  arranque (es idempotente), e `importAllCatalogs` también lo hace antes de importar.
+- El upsert de la semilla actualiza con `excluded.*`; antes asignaba cada columna a sí misma y no corregía nombres.

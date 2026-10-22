@@ -1,4 +1,5 @@
 import type { Db } from '@stenia/db';
+import { seedEquipment } from '@stenia/db/seed';
 
 import type { FetchBytes, ImportSummary } from './catalog';
 import { CALISTHENICS_URL, importCalisthenics, parseJsonl } from './importers/calisthenics';
@@ -42,6 +43,8 @@ export async function importAllCatalogs(db: Db, options: ImportAllOptions = {}):
   const base = { mirror: options.mirror ?? null, limit: options.limit, log: options.log, fetchBytes: options.fetchBytes };
   const empty: ImportSummary = { exercises: 0, media: 0, progressions: 0, skippedEquipment: [] };
   const out: Record<CatalogSource, ImportSummary> = { fed: empty, cal: empty, repdb: empty };
+  // Los importadores mapean equipo por slug: se siembra antes por si la base es nueva (es idempotente).
+  await seedEquipment(db);
 
   if (sources.has('repdb')) {
     const dataset = RepDbDataset.parse(JSON.parse(await fetchText(REPDB_URL)));

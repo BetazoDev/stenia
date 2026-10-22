@@ -66,6 +66,13 @@ describe('migraciones', () => {
     expect(await seedEquipment(ctx.db)).toBe(EQUIPMENT_SEED.length);
     const rows = await ctx.db.select().from(equipment);
     expect(rows).toHaveLength(EQUIPMENT_SEED.length);
+
+    // Volver a sembrar corrige nombres desactualizados.
+    const first = EQUIPMENT_SEED[0]!;
+    await ctx.db.update(equipment).set({ nameEs: 'viejo' }).where(sql`${equipment.slug} = ${first.slug}`);
+    await seedEquipment(ctx.db);
+    const [fixed] = await ctx.db.select().from(equipment).where(sql`${equipment.slug} = ${first.slug}`);
+    expect(fixed?.nameEs).toBe(first.nameEs);
   });
 
   it('asigna valores por defecto a un usuario nuevo', async () => {
