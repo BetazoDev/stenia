@@ -37,7 +37,7 @@ const SOURCE_LABELS: Record<string, { label: string; url: string; license: strin
 export default async function ExerciseDetailPage({ params }: Props) {
   const { user } = await requireSession();
   const { slug } = await params;
-  const [detail, status] = await Promise.all([getExerciseDetail(user.id, slug), aiStatus('exercise_tip')]);
+  const [detail, status] = await Promise.all([getExerciseDetail(user.id, slug), aiStatus('exercise_tip', user.id)]);
   if (!detail) notFound();
   const { exercise: ex, media } = detail;
   const steps = ex.instructionsEs.length > 0 ? ex.instructionsEs : ex.instructionsEn;

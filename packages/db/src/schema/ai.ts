@@ -3,13 +3,13 @@ import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text 
 import { createdAt, id, updatedAt } from './_shared';
 import { user } from './auth';
 
-export const aiProvider = pgEnum('ai_provider', ['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible', 'claude_code']);
+export const aiProvider = pgEnum('ai_provider', ['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible', 'claude_code', 'workers_ai']);
 
 export type AiModelsJson = { planning: string; fast: string; vision: string; fallback: string };
 export type AiTaskParamsJson = { temperature: number; maxTokens: number };
 export type AiParamsJson = Record<'planning' | 'fast' | 'vision' | 'fallback', AiTaskParamsJson>;
 
-/** Una sola fila (`id = 'default'`): configuración global del desarrollador. */
+/** Fila `default`: perfil de la cuenta dueña (admin). Fila `users`: perfil opcional para las demás cuentas. */
 export const aiSettings = pgTable('ai_settings', {
   id: text('id').primaryKey().default('default'),
   provider: aiProvider('provider').notNull().default('anthropic'),

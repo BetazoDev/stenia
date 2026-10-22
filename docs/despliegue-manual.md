@@ -129,3 +129,14 @@ Si prefieres otra cuenta, crea ahí los mismos tres nombres.
 5. `pnpm ai:bridge install` para que el puente arranque solo al iniciar sesión (bitácora en
    `~/Library/Logs/stenia-ai-bridge.log`). Para quitarlo: `pnpm ai:bridge uninstall`.
 6. La Mac debe estar encendida y sin dormir para atender peticiones; si no, la app usa las versiones sin IA.
+
+## 11. IA para las demás cuentas (Workers AI u OpenRouter)
+
+1. Redespliega la app (la migración `0005` se aplica sola).
+2. Cloudflare → Workers AI → «Use REST API»: copia el **ID de cuenta** y crea un **API token** con la plantilla
+   Workers AI. Guárdalo en tu gestor de contraseñas; no lo pegues en chats ni en el repo.
+3. En la app: `/settings/developer` → «IA para las demás cuentas» → **Proveedor propio**.
+4. En «Proveedor para las demás cuentas» elige **Cloudflare Workers AI**, pega el ID de cuenta y el token → Guardar →
+   Probar conexión.
+5. Para OpenRouter: elige OpenRouter, pega su API key y escribe los modelos (por ejemplo los que terminan en `:free`).
+6. Tu cuenta sigue con la suscripción de Claude por el puente; las demás usan este perfil.

@@ -1,8 +1,11 @@
 'use server';
 
 import {
+  AiScope,
   AiSettingsInput,
   AiTask,
+  OWNER_ONLY_PROVIDERS,
+  UsersAiMode,
   encryptSecret,
   testConnection,
   type ConnectionTestResult,
@@ -13,7 +16,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { approvePairing, bridgeGenerate, unpairBridge, usesBridge } from '@/lib/ai-bridge';
-import { loadAiSettings, modelForTask, resolveApiKey, resolveProvider } from '@/lib/ai-settings';
+import {
+  SCOPE_ROW_ID,
+  loadAiSettings,
+  modelForTask,
+  resolveApiKey,
+  resolveProvider,
+  setUsersAiMode,
+} from '@/lib/ai-settings';
 import { recordAiUsage } from '@/lib/ai-usage';
 import { getDb } from '@/lib/db';
 import { env } from '@/lib/env';
@@ -22,6 +32,7 @@ import { requireAdmin } from '@/lib/session';
 export type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
 
 const SaveInput = z.object({
+  scope: AiScope.default('owner'),
   settings: AiSettingsInput,
   apiKey: z.string().trim().max(512).optional(),
 });
@@ -31,24 +42,44 @@ export async function saveAiSettingsAction(raw: unknown): Promise<ActionResult> 
   // Defensa en el servidor: la URL base no aplica a la suscripción de Claude (un autocompletado no debe bloquear el guardado).
   const input = raw as { settings?: { provider?: string; baseUrl?: string } } | null;
   const normalized =
-    input?.settings?.provider === 'claude_code' ? { ...input, settings: { ...input.settings, baseUrl: '' } } : raw;
+    input?.settings?.provider === 'claude_code'
+      ? { ...input, settings: { ...input.settings, baseUrl: '' } }
+      : raw;
   const parsed = SaveInput.safeParse(normalized);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    return { ok: false, message: first ? `${first.path.join('.') || 'formulario'}: ${first.message}` : 'Datos inválidos' };
+    return {
+      ok: false,
+      message: first
+        ? `${first.path.join('.') || 'formulario'}: ${first.message}`
+        : 'Datos inválidos',
+    };
   }
-  const { settings, apiKey } = parsed.data;
+  const { settings, apiKey, scope } = parsed.data;
+  if (scope === 'users' && OWNER_ONLY_PROVIDERS.includes(settings.provider)) {
+    return {
+      ok: false,
+      message:
+        'La suscripción de Claude solo puede usarla tu cuenta (términos de Anthropic). Elige otro proveedor para las demás cuentas.',
+    };
+  }
 
   let keyFields: { apiKeyEncrypted: string; apiKeyLast4: string } | null = null;
   if (apiKey) {
     const key = env().ENCRYPTION_KEY;
     if (!key) {
-      return { ok: false, message: 'Falta ENCRYPTION_KEY en el servidor; no se puede guardar la API key cifrada.' };
+      return {
+        ok: false,
+        message: 'Falta ENCRYPTION_KEY en el servidor; no se puede guardar la API key cifrada.',
+      };
     }
     try {
       keyFields = { apiKeyEncrypted: encryptSecret(apiKey, key), apiKeyLast4: apiKey.slice(-4) };
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : 'No se pudo cifrar la API key.' };
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo cifrar la API key.',
+      };
     }
   }
 
@@ -67,31 +98,51 @@ export async function saveAiSettingsAction(raw: unknown): Promise<ActionResult> 
 
   await getDb()
     .insert(aiSettings)
-    .values({ id: 'default', ...values })
+    .values({ id: SCOPE_ROW_ID[scope], ...values })
     .onConflictDoUpdate({ target: aiSettings.id, set: values });
 
   revalidatePath('/settings/developer');
-  return { ok: true, message: keyFields ? 'Configuración y API key guardadas.' : 'Configuración guardada.' };
+  return {
+    ok: true,
+    message: keyFields ? 'Configuración y API key guardadas.' : 'Configuración guardada.',
+  };
 }
 
-export async function clearApiKeyAction(): Promise<ActionResult> {
+export async function clearApiKeyAction(rawScope: unknown = 'owner'): Promise<ActionResult> {
   const session = await requireAdmin();
+  const scope = AiScope.catch('owner').parse(rawScope);
   await getDb()
     .update(aiSettings)
-    .set({ apiKeyEncrypted: null, apiKeyLast4: null, updatedBy: session.user.id, updatedAt: new Date() })
-    .where(eq(aiSettings.id, 'default'));
+    .set({
+      apiKeyEncrypted: null,
+      apiKeyLast4: null,
+      updatedBy: session.user.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(aiSettings.id, SCOPE_ROW_ID[scope]));
   revalidatePath('/settings/developer');
   return { ok: true, message: 'API key eliminada.' };
 }
 
-export async function testConnectionAction(rawTask: unknown): Promise<ConnectionTestResult> {
+export async function testConnectionAction(
+  rawTask: unknown,
+  rawScope: unknown = 'owner',
+): Promise<ConnectionTestResult> {
   const session = await requireAdmin();
   const task = AiTask.safeParse(rawTask);
   if (!task.success) return { ok: false, latencyMs: 0, modelId: '', message: 'Tarea no válida.' };
+  const scope = AiScope.catch('owner').parse(rawScope);
 
-  const row = await loadAiSettings();
-  const provider = resolveProvider(row);
-  if (usesBridge(provider)) {
+  const row = await loadAiSettings(scope);
+  if (scope === 'users' && !row)
+    return {
+      ok: false,
+      latencyMs: 0,
+      modelId: '',
+      message: 'Guarda primero el proveedor de las demás cuentas.',
+    };
+  const provider = resolveProvider(row, scope);
+  if (usesBridge(provider) && scope === 'owner') {
     const modelId = modelForTask(row, provider, task.data);
     const r = await bridgeGenerate({
       userId: session.user.id,
@@ -102,27 +153,66 @@ export async function testConnectionAction(rawTask: unknown): Promise<Connection
       system: 'Responde solo con el JSON pedido.',
       prompt: 'Devuelve {"ok": true}.',
     });
-    await recordAiUsage({ userId: session.user.id, task: 'connection_test', provider, model: modelId, inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens, latencyMs: r.latencyMs, ok: r.ok, error: r.ok ? null : r.message });
+    await recordAiUsage({
+      userId: session.user.id,
+      task: 'connection_test',
+      provider,
+      model: modelId,
+      inputTokens: r.usage.inputTokens,
+      outputTokens: r.usage.outputTokens,
+      latencyMs: r.latencyMs,
+      ok: r.ok,
+      error: r.ok ? null : r.message,
+    });
     revalidatePath('/settings/developer');
     return r.ok
-      ? { ok: true, latencyMs: r.latencyMs, modelId, usage: { inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens }, costUsd: 0 }
+      ? {
+          ok: true,
+          latencyMs: r.latencyMs,
+          modelId,
+          usage: { inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens },
+          costUsd: 0,
+        }
       : { ok: false, latencyMs: r.latencyMs, modelId, message: r.message };
   }
   let key: ReturnType<typeof resolveApiKey>;
   try {
-    key = resolveApiKey(row);
+    key = resolveApiKey(row, scope);
   } catch (error) {
-    return { ok: false, latencyMs: 0, modelId: '', message: error instanceof Error ? error.message : 'No se pudo leer la API key.' };
+    return {
+      ok: false,
+      latencyMs: 0,
+      modelId: '',
+      message: error instanceof Error ? error.message : 'No se pudo leer la API key.',
+    };
   }
   if (!key) {
-    return { ok: false, latencyMs: 0, modelId: '', message: 'No hay API key guardada ni AI_API_KEY en el entorno.' };
+    return {
+      ok: false,
+      latencyMs: 0,
+      modelId: '',
+      message:
+        scope === 'owner'
+          ? 'No hay API key guardada ni AI_API_KEY en el entorno.'
+          : 'No hay API key guardada para las demás cuentas.',
+    };
   }
   const modelId = modelForTask(row, provider, task.data);
   if (!modelId) {
-    return { ok: false, latencyMs: 0, modelId: '', message: 'Indica un modelo para esta tarea antes de probar.' };
+    return {
+      ok: false,
+      latencyMs: 0,
+      modelId: '',
+      message: 'Indica un modelo para esta tarea antes de probar.',
+    };
   }
 
-  const result = await testConnection({ provider, apiKey: key.apiKey, modelId, baseUrl: row?.baseUrl ?? undefined });
+  const result = await testConnection({
+    provider,
+    apiKey: key.apiKey,
+    modelId,
+    baseUrl: row?.baseUrl ?? undefined,
+  });
   await recordAiUsage({
     userId: session.user.id,
     task: 'connection_test',
@@ -138,7 +228,13 @@ export async function testConnectionAction(rawTask: unknown): Promise<Connection
   return result;
 }
 
-const JobTypeInput = z.enum(['import_foods', 'import_exercises', 'translate_exercises_glossary', 'translate_exercises_ai', 'translate_foods_ai']);
+const JobTypeInput = z.enum([
+  'import_foods',
+  'import_exercises',
+  'translate_exercises_glossary',
+  'translate_exercises_ai',
+  'translate_foods_ai',
+]);
 
 export async function startJobAction(type: string): Promise<ActionResult> {
   const session = await requireAdmin();
@@ -164,4 +260,13 @@ export async function unpairBridgeAction(): Promise<ActionResult> {
   await unpairBridge();
   revalidatePath('/settings/developer');
   return { ok: true };
+}
+
+export async function setUsersModeAction(raw: unknown): Promise<ActionResult> {
+  await requireAdmin();
+  const mode = UsersAiMode.safeParse(raw);
+  if (!mode.success) return { ok: false, message: 'Modo no válido.' };
+  await setUsersAiMode(mode.data);
+  revalidatePath('/settings/developer');
+  return { ok: true, message: 'Guardado.' };
 }

@@ -13,7 +13,7 @@ import {
   type StructuredFailure,
   type StructuredSuccess,
 } from '@stenia/ai';
-import { aiBridgeRequest, appConfig, user } from '@stenia/db';
+import { aiBridgeRequest, appConfig } from '@stenia/db';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -157,13 +157,6 @@ export async function finishRequest(result: BridgeResult) {
 }
 
 // ── Lado del servidor: encolar y esperar ──────────────────────────────────────────────────
-
-/** Solo la cuenta dueña (rol admin) usa la suscripción; nunca peticiones de otras personas. */
-export async function isSubscriptionOwner(userId: string | null): Promise<boolean> {
-  if (!userId) return true; // Tareas de sistema lanzadas por el admin (importaciones, traducciones).
-  const [row] = await getDb().select({ role: user.role }).from(user).where(eq(user.id, userId)).limit(1);
-  return row?.role === 'admin';
-}
 
 export async function bridgeGenerate<T>(req: {
   userId: string | null;

@@ -10,8 +10,8 @@ import { requireSession } from '@/lib/session';
 export const metadata: Metadata = { title: 'Ticket de composición corporal' };
 
 export default async function InbodyPage() {
-  await requireSession();
-  const status = await aiStatus('inbody_extraction');
+  const { user } = await requireSession();
+  const status = await aiStatus('inbody_extraction', user.id);
   const ready = status.available && status.sendPhotos;
   const message = !status.available
     ? aiUnavailableMessage(status.reason)

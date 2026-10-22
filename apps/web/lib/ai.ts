@@ -5,12 +5,12 @@ import { aiPromptLog } from '@stenia/db';
 import type { ModelMessage } from '@stenia/ai';
 import type { z } from 'zod';
 
-import { bridgeGenerate, bridgeState, isSubscriptionOwner, usesBridge } from './ai-bridge';
-import { budgetLevel, getMonthlyUsage, loadAiSettings, modelForTask, resolveApiKey, resolveProvider } from './ai-settings';
+import { bridgeGenerate, bridgeState, usesBridge } from './ai-bridge';
+import { budgetLevel, getMonthlyUsage, modelForTask, resolveAiConfig, resolveApiKey, type AiConfig } from './ai-settings';
 import { recordAiUsage } from './ai-usage';
 import { getDb } from './db';
 
-export type AiUnavailableReason = 'not_configured' | 'budget' | 'photos_disabled' | 'bridge_offline' | 'subscription_owner_only';
+export type AiUnavailableReason = 'not_configured' | 'budget' | 'photos_disabled' | 'bridge_offline' | 'subscription_owner_only' | 'users_disabled';
 
 export type AiResult<T> =
   | { ok: true; output: T; modelId: string }
@@ -18,23 +18,30 @@ export type AiResult<T> =
 
 export type AiStatus = { available: boolean; reason: AiUnavailableReason | null; sendPhotos: boolean; budget: 'ok' | 'warn' | 'blocked' };
 
-/** ¿Hay proveedor y key configurados, y presupuesto para esta función? */
-export async function aiStatus(fn?: AiFunction): Promise<AiStatus> {
-  const row = await loadAiSettings();
+/**
+ * ¿Hay IA para esta cuenta y función? La cuenta dueña usa su perfil; las demás, el de «otras cuentas».
+ * Presupuesto, envío de fotos y registro de prompts salen siempre del perfil dueño.
+ */
+export async function aiStatus(fn?: AiFunction, userId: string | null = null): Promise<AiStatus> {
+  return statusFor(await resolveAiConfig(userId), fn);
+}
+
+async function statusFor(config: AiConfig, fn?: AiFunction): Promise<AiStatus> {
+  const sendPhotos = config.owner?.sendPhotos ?? false;
+  if (config.disabled) return { available: false, reason: config.disabled, sendPhotos, budget: 'ok' };
   // En el servidor, la suscripción de Claude solo está disponible si la Mac del usuario está conectada al puente.
-  if (usesBridge(resolveProvider(row))) {
+  if (usesBridge(config.provider)) {
     const state = await bridgeState();
-    return { available: state.online, reason: state.online ? null : 'bridge_offline', sendPhotos: row?.sendPhotos ?? false, budget: 'ok' };
+    return { available: state.online, reason: state.online ? null : 'bridge_offline', sendPhotos, budget: 'ok' };
   }
   let key: ReturnType<typeof resolveApiKey> = null;
   try {
-    key = resolveApiKey(row);
+    key = resolveApiKey(config.row, config.scope);
   } catch {
     key = null;
   }
   const usage = await getMonthlyUsage();
-  const budget = budgetLevel(usage.totalUsd, row?.monthlyBudgetUsd ?? 20).level;
-  const sendPhotos = row?.sendPhotos ?? false;
+  const budget = budgetLevel(usage.totalUsd, config.owner?.monthlyBudgetUsd ?? 20).level;
   if (!key) return { available: false, reason: 'not_configured', sendPhotos, budget };
   if (fn && budget === 'blocked' && !AI_FUNCTIONS[fn].essential) return { available: false, reason: 'budget', sendPhotos, budget };
   return { available: true, reason: null, sendPhotos, budget };
@@ -46,6 +53,7 @@ const UNAVAILABLE_MESSAGES: Record<AiUnavailableReason, string> = {
   photos_disabled: 'El envío de fotos al LLM está apagado en Configuración de desarrollador.',
   bridge_offline: 'Tu Mac no está conectada al puente de IA (pnpm ai:bridge); se usa la versión sin IA.',
   subscription_owner_only: 'La IA con suscripción de Claude solo está disponible para la cuenta dueña.',
+  users_disabled: 'La IA no está habilitada para esta cuenta; se usan las versiones sin IA.',
 };
 
 /** Texto para la interfaz cuando una función de IA no está disponible. */
@@ -76,22 +84,23 @@ export type RunAiArgs<T> = {
  * respaldo si falla y registra tokens y costo en `ai_usage` (y el prompt sin datos personales si está activo).
  */
 export async function runAi<T>(args: RunAiArgs<T>): Promise<AiResult<T>> {
-  const status = await aiStatus(args.fn);
+  const config = await resolveAiConfig(args.userId);
+  const status = await statusFor(config, args.fn);
   if (!status.available && status.reason) return { ok: false, reason: status.reason, message: UNAVAILABLE_MESSAGES[status.reason] };
-  const row = await loadAiSettings();
-  if (args.withImages && !row?.sendPhotos) {
+  const { row, provider } = config;
+  if (args.withImages && !config.owner?.sendPhotos) {
     return { ok: false, reason: 'photos_disabled', message: UNAVAILABLE_MESSAGES.photos_disabled };
   }
-  const key = resolveApiKey(row);
+  const key = resolveApiKey(row, config.scope);
   if (!key) return { ok: false, reason: 'not_configured', message: UNAVAILABLE_MESSAGES.not_configured };
-  const provider = resolveProvider(row);
   const task = AI_FUNCTIONS[args.fn].task;
   const params: CallParams = row?.params[task] ?? { temperature: 0.2, maxTokens: 4000 };
   const primary = modelForTask(row, provider, task);
   const fallback = row?.models.fallback?.trim() || null;
   const models = [primary, ...(fallback && fallback !== primary ? [fallback] : [])];
+  // Doble candado: el puente (suscripción de Claude) solo atiende al perfil dueño.
   const bridged = usesBridge(provider);
-  if (bridged && !(await isSubscriptionOwner(args.userId))) {
+  if (bridged && config.scope !== 'owner') {
     return { ok: false, reason: 'subscription_owner_only', message: UNAVAILABLE_MESSAGES.subscription_owner_only };
   }
 
@@ -121,7 +130,7 @@ export async function runAi<T>(args: RunAiArgs<T>): Promise<AiResult<T>> {
       ok: result.ok,
       error: result.ok ? null : result.message,
     });
-    if (row?.logPrompts) {
+    if (config.owner?.logPrompts) {
       await getDb()
         .insert(aiPromptLog)
         .values({

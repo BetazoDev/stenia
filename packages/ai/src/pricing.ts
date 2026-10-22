@@ -14,6 +14,10 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   'gpt-6-astra': { input: 10, output: 50 },
   'gemini-3.1-pro-preview': { input: 2, output: 12 },
   'gemini-3.8-flash': { input: 0.75, output: 3.75 },
+  // Workers AI (Cloudflare): referencia si se pasa del plan gratuito; con el plan gratuito no hay cargo.
+  'gpt-oss-120b': { input: 0.35, output: 0.75 },
+  'gpt-oss-20b': { input: 0.2, output: 0.3 },
+  'gemma-4-26b-a4b-it': { input: 0.1, output: 0.3 },
 };
 
 export type TokenUsage = {

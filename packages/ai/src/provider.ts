@@ -18,6 +18,9 @@ export type ModelConfig = {
   headers?: Record<string, string> | undefined;
 };
 
+/** Workers AI acepta `response_format: json_schema` (JSON Mode compatible con OpenAI). Se confirma con scripts/eval-ai.ts. */
+export const WORKERS_AI_JSON_SCHEMA = true;
+
 /** Construye el modelo del Vercel AI SDK para el proveedor elegido. Solo se llama desde el servidor. */
 export function resolveModel(config: ModelConfig): LanguageModel {
   const baseURL = config.baseUrl?.trim() || undefined;
@@ -30,6 +33,16 @@ export function resolveModel(config: ModelConfig): LanguageModel {
       return createGoogleGenerativeAI({ apiKey: config.apiKey, baseURL })(config.modelId);
     case 'openrouter':
       return createOpenRouter({ apiKey: config.apiKey, baseURL })(config.modelId);
+    case 'workers_ai': {
+      if (!baseURL) throw new Error('Workers AI necesita el ID de cuenta de Cloudflare.');
+      return createOpenAICompatible({
+        name: 'workers-ai',
+        apiKey: config.apiKey,
+        baseURL,
+        supportsStructuredOutputs: config.structuredOutputs ?? WORKERS_AI_JSON_SCHEMA,
+        ...(config.headers ? { headers: config.headers } : {}),
+      })(config.modelId);
+    }
     case 'claude_code':
       throw new Error('La suscripción de Claude no usa el AI SDK: se llama con generateWithClaudeCode().');
     case 'openai_compatible': {

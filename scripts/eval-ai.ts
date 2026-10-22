@@ -4,8 +4,11 @@
  * Corre rutina, plan de comidas, revisión y traducción, y aplica los mismos validadores que la app.
  *
  * Uso (las claves van por entorno, nunca por argumento):
- *   EVAL_PROVIDER=openai_compatible EVAL_BASE_URL=https://api.cloudflare.com/client/v4/accounts/<id>/ai/v1 \
- *   EVAL_API_KEY=… bun run scripts/eval-ai.ts --models=@cf/openai/gpt-oss-120b,@cf/google/gemma-4-26b-a4b-it
+ *   Workers AI: CLOUDFLARE_ACCOUNT_ID y CLOUDFLARE_API_TOKEN en .env.local, luego
+ *   bun run scripts/eval-ai.ts (sin --models usa los modelos por defecto de Workers AI)
+ *
+ *   Otro proveedor: EVAL_PROVIDER=openrouter EVAL_API_KEY=… bun run scripts/eval-ai.ts --models=…
+ *   (openai_compatible además necesita EVAL_BASE_URL)
  *
  *   Suscripción de Claude: EVAL_PROVIDER=claude_code bun run scripts/eval-ai.ts --models=claude-sonnet-5-5
  *
@@ -19,12 +22,14 @@ import {
   AliasRoutinePlan,
   AiProvider,
   CheckinAnalysis,
+  DEFAULT_MODELS,
   Translations,
   checkinPrompt,
   generateStructured,
   mealPlanPrompt,
   routinePrompt,
   translationPrompt,
+  workersAiBaseUrl,
   type ModelConfig,
 } from '@stenia/ai';
 import { loadCatalogExercises } from '@stenia/catalog';
@@ -57,11 +62,24 @@ const { values } = parseArgs({
   },
 });
 
-const provider = AiProvider.parse(process.env.EVAL_PROVIDER ?? 'openai_compatible');
+const cfAccount = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+const provider = AiProvider.parse(process.env.EVAL_PROVIDER ?? (cfAccount ? 'workers_ai' : 'openai_compatible'));
 // Con la suscripción de Claude la key es opcional: token de `claude setup-token` o login local.
-const apiKey = provider === 'claude_code' ? (process.env.CLAUDE_CODE_OAUTH_TOKEN ?? '') : (process.env.EVAL_API_KEY ?? '');
-if ((!apiKey && provider !== 'claude_code') || !values.models) {
-  console.error('Falta EVAL_API_KEY en el entorno o --models=…');
+const apiKey =
+  provider === 'claude_code'
+    ? (process.env.CLAUDE_CODE_OAUTH_TOKEN ?? '')
+    : provider === 'workers_ai'
+      ? (process.env.CLOUDFLARE_API_TOKEN ?? process.env.EVAL_API_KEY ?? '')
+      : (process.env.EVAL_API_KEY ?? '');
+const baseUrl = process.env.EVAL_BASE_URL ?? (provider === 'workers_ai' && cfAccount ? workersAiBaseUrl(cfAccount) : undefined);
+const defaults = DEFAULT_MODELS[provider];
+const modelList = values.models ?? (provider === 'workers_ai' ? [...new Set([defaults.planning, defaults.fast])].join(',') : '');
+if (provider === 'workers_ai' && !baseUrl) {
+  console.error('Falta CLOUDFLARE_ACCOUNT_ID en el entorno.');
+  process.exit(1);
+}
+if ((!apiKey && provider !== 'claude_code') || !modelList) {
+  console.error(provider === 'workers_ai' ? 'Falta CLOUDFLARE_API_TOKEN en el entorno.' : 'Falta EVAL_API_KEY en el entorno o --models=…');
   process.exit(1);
 }
 const headers = Object.fromEntries((values.header ?? []).map((h) => [h.slice(0, h.indexOf(':')).trim(), h.slice(h.indexOf(':') + 1).trim()]));
@@ -79,12 +97,12 @@ try {
   const byId = new Map(catalog.map((e) => [e.id, e]));
   const staples = (await db.select().from(food)).filter((f) => f.tags.includes('staple'));
 
-  for (const modelId of values.models.split(',').map((m) => m.trim()).filter(Boolean)) {
+  for (const modelId of modelList.split(',').map((m) => m.trim()).filter(Boolean)) {
     const model: ModelConfig = {
       provider,
       apiKey,
       modelId,
-      baseUrl: process.env.EVAL_BASE_URL,
+      baseUrl,
       structuredOutputs: values['json-schema'],
       ...(Object.keys(headers).length ? { headers } : {}),
     };

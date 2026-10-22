@@ -1,7 +1,17 @@
 import 'server-only';
 
-import { AiProvider, DEFAULT_MODELS, decryptSecret, defaultSettingsFor, type AiSettingsInput, type AiTask } from '@stenia/ai';
-import { aiSettings, aiUsage } from '@stenia/db';
+import {
+  AiProvider,
+  DEFAULT_MODELS,
+  UsersAiMode,
+  chooseAiProfile,
+  decryptSecret,
+  defaultSettingsFor,
+  type AiScope,
+  type AiSettingsInput,
+  type AiTask,
+} from '@stenia/ai';
+import { aiSettings, aiUsage, appConfig, user } from '@stenia/db';
 import { eq, gte, sql } from 'drizzle-orm';
 
 import { getDb } from './db';
@@ -9,9 +19,55 @@ import { env } from './env';
 
 export type StoredAiSettings = typeof aiSettings.$inferSelect;
 
-export async function loadAiSettings(): Promise<StoredAiSettings | null> {
-  const [row] = await getDb().select().from(aiSettings).where(eq(aiSettings.id, 'default')).limit(1);
+/** Fila `default`: tu perfil (admin). Fila `users`: el perfil opcional de las demás cuentas. */
+export const SCOPE_ROW_ID: Record<AiScope, string> = { owner: 'default', users: 'users' };
+
+export async function loadAiSettings(scope: AiScope = 'owner'): Promise<StoredAiSettings | null> {
+  const [row] = await getDb().select().from(aiSettings).where(eq(aiSettings.id, SCOPE_ROW_ID[scope])).limit(1);
   return row ?? null;
+}
+
+const USERS_MODE_KEY = 'ai_users_mode';
+
+export async function getUsersAiMode(): Promise<UsersAiMode> {
+  const [row] = await getDb().select({ value: appConfig.value }).from(appConfig).where(eq(appConfig.key, USERS_MODE_KEY)).limit(1);
+  const parsed = UsersAiMode.safeParse(row?.value);
+  return parsed.success ? parsed.data : 'same';
+}
+
+export async function setUsersAiMode(mode: UsersAiMode) {
+  await getDb()
+    .insert(appConfig)
+    .values({ key: USERS_MODE_KEY, value: mode })
+    .onConflictDoUpdate({ target: appConfig.key, set: { value: mode, updatedAt: new Date() } });
+}
+
+/** La cuenta dueña es el rol admin; `null` son tareas de sistema que lanza el admin (importaciones, traducciones). */
+export async function isOwnerAccount(userId: string | null): Promise<boolean> {
+  if (!userId) return true;
+  const [row] = await getDb().select({ role: user.role }).from(user).where(eq(user.id, userId)).limit(1);
+  return row?.role === 'admin';
+}
+
+export type AiConfig = {
+  scope: AiScope;
+  /** Perfil que atiende la llamada (modelos, parámetros, proveedor, key). */
+  row: StoredAiSettings | null;
+  /** Perfil de la cuenta dueña: presupuesto, envío de fotos y registro de prompts aplican a todos. */
+  owner: StoredAiSettings | null;
+  provider: AiProvider;
+  disabled: 'users_disabled' | 'subscription_owner_only' | null;
+};
+
+/** Elige el perfil de IA para una cuenta: la dueña usa el suyo; las demás, el de «otras cuentas». */
+export async function resolveAiConfig(userId: string | null): Promise<AiConfig> {
+  const owner = await loadAiSettings('owner');
+  const ownerProvider = resolveProvider(owner, 'owner');
+  const isOwner = await isOwnerAccount(userId);
+  const [mode, users] = isOwner ? (['same', null] as const) : await Promise.all([getUsersAiMode(), loadAiSettings('users')]);
+  const decision = chooseAiProfile({ isOwner, mode, ownerProvider, hasUsersProfile: Boolean(users) });
+  const row = decision.scope === 'users' ? users : owner;
+  return { scope: decision.scope, row, owner, provider: resolveProvider(row, decision.scope), disabled: decision.disabled };
 }
 
 export function settingsToInput(row: StoredAiSettings | null): AiSettingsInput {
@@ -27,10 +83,12 @@ export function settingsToInput(row: StoredAiSettings | null): AiSettingsInput {
   };
 }
 
-/** `AI_PROVIDER` en el entorno sobrescribe el proveedor guardado. */
-export function resolveProvider(row: StoredAiSettings | null): AiProvider {
-  const fromEnv = AiProvider.safeParse(env().AI_PROVIDER);
-  if (fromEnv.success) return fromEnv.data;
+/** `AI_PROVIDER` en el entorno sobrescribe el proveedor guardado de tu perfil (no el de las demás cuentas). */
+export function resolveProvider(row: StoredAiSettings | null, scope: AiScope = 'owner'): AiProvider {
+  if (scope === 'owner') {
+    const fromEnv = AiProvider.safeParse(env().AI_PROVIDER);
+    if (fromEnv.success) return fromEnv.data;
+  }
   return row?.provider ?? 'anthropic';
 }
 
@@ -44,15 +102,15 @@ export function providerFromEnv(): AiProvider | null {
  * opcional: un token de `claude setup-token` (guardado o en `CLAUDE_CODE_OAUTH_TOKEN`) o, si no hay, el login
  * local de Claude Code en el equipo del servidor.
  */
-export function resolveApiKey(row: StoredAiSettings | null): { apiKey: string; source: 'env' | 'stored' | 'subscription' } | null {
+export function resolveApiKey(row: StoredAiSettings | null, scope: AiScope = 'owner'): { apiKey: string; source: 'env' | 'stored' | 'subscription' } | null {
   const e = env();
-  if (resolveProvider(row) === 'claude_code') {
+  if (resolveProvider(row, scope) === 'claude_code') {
     const stored = row?.apiKeyEncrypted ? decryptSecret(row.apiKeyEncrypted, e.ENCRYPTION_KEY) : '';
     // Solo cuenta como token si lo es: una API key de otro proveedor guardada antes se ignora.
     if (stored.startsWith('sk-ant-oat')) return { apiKey: stored, source: 'stored' };
     return { apiKey: e.CLAUDE_CODE_OAUTH_TOKEN ?? '', source: e.CLAUDE_CODE_OAUTH_TOKEN ? 'env' : 'subscription' };
   }
-  if (e.AI_API_KEY) return { apiKey: e.AI_API_KEY, source: 'env' };
+  if (scope === 'owner' && e.AI_API_KEY) return { apiKey: e.AI_API_KEY, source: 'env' };
   if (row?.apiKeyEncrypted) {
     return { apiKey: decryptSecret(row.apiKeyEncrypted, e.ENCRYPTION_KEY), source: 'stored' };
   }

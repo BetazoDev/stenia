@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: 'Fotos de progreso' };
 
 export default async function PhotosPage() {
   const { user } = await requireSession();
-  const [profile, photos, status, measurements] = await Promise.all([getProfile(user.id), listPhotos(user.id), aiStatus('body_fat_photo'), listMeasurements(user.id, 60)]);
+  const [profile, photos, status, measurements] = await Promise.all([getProfile(user.id), listPhotos(user.id), aiStatus('body_fat_photo', user.id), listMeasurements(user.id, 60)]);
   const hasPoses = photos.some((p) => p.pose === 'front') && photos.some((p) => p.pose === 'side');
   const estimateReason = !hasPoses
     ? 'Necesitas al menos una foto de frente y una de perfil.'

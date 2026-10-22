@@ -267,8 +267,32 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
 - **Mac apagada.** Si la Mac no pidió trabajo en 70 s, el puente se marca desconectado y la IA no está disponible: la
   app usa al momento las rutinas, planes y revisiones por reglas, sin esperar. `pnpm ai:bridge install` deja el
   proceso como servicio de macOS (launchd) que arranca al iniciar sesión.
-- Si la app se abre a otros usuarios, se pasa a una API key.
+- Si la app se abre a otros usuarios, se pasa a una API key (ver 2026-10-22: perfil para las demás cuentas).
 - Costo registrado en cero y tokens contados (las llamadas consumen los límites de 5 horas y semanales de la
   suscripción). Modelos por defecto: Sonnet 5.5 para planificar y visión, Haiku 5.5 para lo rápido.
 - Investigación previa de opciones gratuitas: Cloudflare Workers AI quedó como alternativa sin costo y sin retención
   de datos; `scripts/eval-ai.ts` sirve para comparar proveedores con los prompts reales.
+
+## 2026-10-22 · IA para las demás cuentas (perfil híbrido)
+
+- La suscripción de Claude sigue siendo solo de la cuenta dueña (admin), por los términos de Anthropic. Para que
+  quienes prueban la app tengan IA sin configurar nada, hay un segundo perfil en `ai_settings` (fila `users`) que el
+  admin configura una vez en `/settings/developer` → «IA para las demás cuentas», con tres modos guardados en
+  `app_config.ai_users_mode`: «Igual que la mía» (comparten tu proveedor y key; con la suscripción quedan sin IA),
+  «Proveedor propio» (fila `users`) o «Sin IA». La regla vive en `chooseAiProfile` (`packages/ai`) con pruebas, y el
+  servidor rechaza guardar la suscripción en el perfil `users`; `runAi` vuelve a comprobarlo antes de usar el puente.
+- Presupuesto mensual, envío de fotos y registro de prompts salen siempre del perfil dueño; `AI_PROVIDER` y
+  `AI_API_KEY` del entorno solo sobrescriben el perfil dueño.
+- Nuevo proveedor `workers_ai` (Cloudflare Workers AI, endpoint compatible con OpenAI): la app arma la URL base con el
+  ID de cuenta y guarda el API token cifrado como cualquier key. Gratis hasta 10,000 neuronas al día, sin retención
+  ni entrenamiento con los datos; al agotarse, la app usa las versiones por reglas. Por defecto
+  `@cf/openai/gpt-oss-120b` para planificar y `@cf/google/gemma-4-26b-a4b-it` para lo rápido, visión y respaldo;
+  queda pendiente confirmar con `scripts/eval-ai.ts` si responden bien con `json_schema` (`WORKERS_AI_JSON_SCHEMA`).
+- OpenRouter también funciona como «Proveedor propio» (ya era proveedor). Sus modelos `:free` sirven para probar,
+  pero tienen 20 peticiones por minuto y 50 al día (1,000 al comprar créditos), el catálogo gratuito cambia seguido y
+  algunos proveedores gratuitos pueden guardar o usar los prompts. Con créditos, cualquier modelo de pago funciona sin
+  esos límites. Se prefiere Workers AI para el modo gratuito y OpenRouter cuando haga falta un modelo concreto.
+- Reemplaza la nota del 2026-10-21 «si la app se abre a otros usuarios, se pasa a una API key»: el perfil `users`
+  cubre ese caso sin tocar el de la cuenta dueña.
+- Next.js sube de 16.4.0 a 16.4.1: `pnpm audit` marcó avisos críticos (ejecución remota sin autenticación) en
+  `>=16.0.0 <=16.4.0`, y el build se detenía.

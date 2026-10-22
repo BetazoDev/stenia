@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const AiProvider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible', 'claude_code']);
+export const AiProvider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'openai_compatible', 'claude_code', 'workers_ai']);
 export type AiProvider = z.infer<typeof AiProvider>;
 
 export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
@@ -10,10 +10,50 @@ export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
   openrouter: 'OpenRouter',
   openai_compatible: 'Compatible con OpenAI (URL base propia)',
   claude_code: 'Suscripción de Claude (tu Mac, sin costo por token)',
+  workers_ai: 'Cloudflare Workers AI (gratis hasta el límite diario)',
 };
 
-/** Proveedores que no cobran por token (usan los límites de una suscripción). */
-export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude_code'];
+/** Proveedores que no cobran por token (suscripción, o asignación gratuita diaria de Workers AI). */
+export const SUBSCRIPTION_PROVIDERS: readonly AiProvider[] = ['claude_code', 'workers_ai'];
+
+/** Proveedores que solo puede usar la cuenta dueña (términos de la suscripción de Claude). */
+export const OWNER_ONLY_PROVIDERS: readonly AiProvider[] = ['claude_code'];
+
+/** URL base de Workers AI (compatible con OpenAI) a partir del ID de cuenta de Cloudflare. */
+export function workersAiBaseUrl(accountId: string): string {
+  return `https://api.cloudflare.com/client/v4/accounts/${accountId.trim()}/ai/v1`;
+}
+
+export function workersAiAccountId(baseUrl: string | null | undefined): string {
+  return baseUrl?.match(/\/accounts\/([^/]+)\/ai\/v1/)?.[1] ?? '';
+}
+
+/** Perfiles de IA: el de la cuenta dueña (admin) y el de las demás cuentas. */
+export const AiScope = z.enum(['owner', 'users']);
+export type AiScope = z.infer<typeof AiScope>;
+
+/** Las demás cuentas usan la misma configuración que la dueña, una propia, o ninguna IA. */
+export const UsersAiMode = z.enum(['same', 'custom', 'off']);
+export type UsersAiMode = z.infer<typeof UsersAiMode>;
+
+export const USERS_AI_MODE_LABELS: Record<UsersAiMode, { label: string; help: string }> = {
+  same: { label: 'Igual que la mía', help: 'Usan tu proveedor y tu key (no aplica con la suscripción de Claude).' },
+  custom: { label: 'Proveedor propio', help: 'Por ejemplo Workers AI gratis u OpenRouter; tú lo configuras una vez.' },
+  off: { label: 'Sin IA', help: 'Usan las versiones por reglas: plantillas de rutina y plan, revisiones por reglas.' },
+};
+
+export type AiProfileDecision =
+  | { scope: AiScope; disabled: null }
+  | { scope: AiScope; disabled: 'users_disabled' | 'subscription_owner_only' };
+
+/** Qué perfil atiende a una cuenta. La suscripción de Claude nunca sirve a otras cuentas. */
+export function chooseAiProfile(input: { isOwner: boolean; mode: UsersAiMode; ownerProvider: AiProvider; hasUsersProfile: boolean }): AiProfileDecision {
+  if (input.isOwner) return { scope: 'owner', disabled: null };
+  if (input.mode === 'off') return { scope: 'users', disabled: 'users_disabled' };
+  if (input.mode === 'custom') return input.hasUsersProfile ? { scope: 'users', disabled: null } : { scope: 'users', disabled: 'users_disabled' };
+  if (OWNER_ONLY_PROVIDERS.includes(input.ownerProvider)) return { scope: 'owner', disabled: 'subscription_owner_only' };
+  return { scope: 'owner', disabled: null };
+}
 
 /** Tareas con modelo configurable (sección 11 del PRD). */
 export const AiTask = z.enum(['planning', 'fast', 'vision', 'fallback']);
@@ -59,6 +99,9 @@ export const AiSettingsInput = z
     logPrompts: z.boolean(),
   })
   .superRefine((value, ctx) => {
+    if (value.provider === 'workers_ai' && !workersAiAccountId(value.baseUrl)) {
+      ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'Escribe el ID de cuenta de Cloudflare' });
+    }
     if (value.provider === 'openai_compatible' && !value.baseUrl) {
       ctx.addIssue({
         code: 'custom',
@@ -99,6 +142,12 @@ export const DEFAULT_MODELS: Record<AiProvider, AiModels> = {
   },
   openai_compatible: { planning: '', fast: '', vision: '', fallback: '' },
   // Sonnet para planificar porque Opus no está en todos los planes; con Max puede cambiarse a claude-opus-5-5.
+  workers_ai: {
+    planning: '@cf/openai/gpt-oss-120b',
+    fast: '@cf/google/gemma-4-26b-a4b-it',
+    vision: '@cf/google/gemma-4-26b-a4b-it',
+    fallback: '@cf/google/gemma-4-26b-a4b-it',
+  },
   claude_code: {
     planning: 'claude-sonnet-5-5',
     fast: 'claude-haiku-5-5',
