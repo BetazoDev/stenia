@@ -28,7 +28,11 @@ const SaveInput = z.object({
 
 export async function saveAiSettingsAction(raw: unknown): Promise<ActionResult> {
   const session = await requireAdmin();
-  const parsed = SaveInput.safeParse(raw);
+  // Defensa en el servidor: la URL base no aplica a la suscripción de Claude (un autocompletado no debe bloquear el guardado).
+  const input = raw as { settings?: { provider?: string; baseUrl?: string } } | null;
+  const normalized =
+    input?.settings?.provider === 'claude_code' ? { ...input, settings: { ...input.settings, baseUrl: '' } } : raw;
+  const parsed = SaveInput.safeParse(normalized);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
     return { ok: false, message: first ? `${first.path.join('.') || 'formulario'}: ${first.message}` : 'Datos inválidos' };

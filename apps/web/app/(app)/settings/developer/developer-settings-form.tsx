@@ -49,7 +49,9 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
   const save = () => {
     setMessage(null);
     startSaving(async () => {
-      const result = await saveAiSettingsAction({ settings, apiKey: replacingKey && apiKey ? apiKey : undefined });
+      // La URL base no aplica a la suscripción de Claude: se manda vacía aunque el navegador la haya autocompletado.
+      const toSave = settings.provider === 'claude_code' ? { ...settings, baseUrl: '' } : settings;
+      const result = await saveAiSettingsAction({ settings: toSave, apiKey: replacingKey && apiKey && settings.provider !== 'claude_code' ? apiKey : undefined });
       setMessage({ tone: result.ok ? 'ok' : 'error', text: result.message ?? 'Guardado.' });
       if (result.ok && apiKey) {
         setApiKey('');
@@ -117,7 +119,12 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
           <Label htmlFor="baseUrl">URL base {settings.provider === 'openai_compatible' ? '' : '(opcional)'}</Label>
           <Input
             id="baseUrl"
+            name="ai-base-url"
             inputMode="url"
+            autoComplete="off"
+            data-1p-ignore=""
+            data-lpignore="true"
+            data-form-type="other"
             placeholder="https://mi-servidor/v1"
             value={settings.baseUrl ?? ''}
             onChange={(e) => update('baseUrl', e.target.value)}
@@ -149,8 +156,12 @@ export function DeveloperSettingsForm({ initial, keyLast4, keyFromEnv, providerF
             <>
               <Input
                 id="apiKey"
+                name="ai-api-key"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
+                data-1p-ignore=""
+                data-lpignore="true"
+                data-form-type="other"
                 spellCheck={false}
                 placeholder="sk-…"
                 value={apiKey}

@@ -51,7 +51,7 @@ export type AiParams = z.infer<typeof AiParams>;
 export const AiSettingsInput = z
   .object({
     provider: AiProvider,
-    baseUrl: z.string().trim().url('URL base inválida').optional().or(z.literal('')),
+    baseUrl: z.string().trim().url('La URL base no es válida (revisa que el navegador no la haya autocompletado)').optional().or(z.literal('')),
     models: AiModels,
     params: AiParams,
     monthlyBudgetUsd: z.number().min(0).max(10_000),
