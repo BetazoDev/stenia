@@ -285,9 +285,18 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
   `AI_API_KEY` del entorno solo sobrescriben el perfil dueño.
 - Nuevo proveedor `workers_ai` (Cloudflare Workers AI, endpoint compatible con OpenAI): la app arma la URL base con el
   ID de cuenta y guarda el API token cifrado como cualquier key. Gratis hasta 10,000 neuronas al día, sin retención
-  ni entrenamiento con los datos; al agotarse, la app usa las versiones por reglas. Por defecto
-  `@cf/openai/gpt-oss-120b` para planificar y `@cf/google/gemma-4-26b-a4b-it` para lo rápido, visión y respaldo;
-  queda pendiente confirmar con `scripts/eval-ai.ts` si responden bien con `json_schema` (`WORKERS_AI_JSON_SCHEMA`).
+  ni entrenamiento con los datos; al agotarse, la app usa las versiones por reglas.
+- Evaluación con `scripts/eval-ai.ts` (cuenta personal de Cloudflare del usuario, 2026-10-22):
+  - Sin `json_schema` (solo `json_object`) ningún modelo respetó la forma pedida: `WORKERS_AI_JSON_SCHEMA` queda en
+    `true`.
+  - Gemma 4 26B razona por defecto y en rutina y plan agotaba los tokens pensando, sin llegar al JSON. Con
+    `chat_template_kwargs.enable_thinking: false` (lo manda la app en Workers AI) pasó las cuatro tareas en dos
+    corridas: rutina válida en 12–47 s (~110 neuronas), plan con desvío ≤ 2.3 % en ~60 s, revisión en ~5 s y
+    traducción en ~4 s.
+  - gpt-oss-120b con 8,000 tokens hizo rutinas de más de 60 min y cortó el plan de comidas; con esfuerzo de
+    razonamiento bajo responde rápido pero rompe las reglas de la rutina. Sí resolvió revisión y traducción.
+  - Por defecto: Gemma 4 26B para planificar, lo rápido y visión; gpt-oss-120b como respaldo. Con 10,000 neuronas
+    diarias alcanzan para unas 80 rutinas o planes al día.
 - OpenRouter también funciona como «Proveedor propio» (ya era proveedor). Sus modelos `:free` sirven para probar,
   pero tienen 20 peticiones por minuto y 50 al día (1,000 al comprar créditos), el catálogo gratuito cambia seguido y
   algunos proveedores gratuitos pueden guardar o usar los prompts. Con créditos, cualquier modelo de pago funciona sin

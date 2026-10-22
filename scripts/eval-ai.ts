@@ -73,7 +73,7 @@ const apiKey =
       : (process.env.EVAL_API_KEY ?? '');
 const baseUrl = process.env.EVAL_BASE_URL ?? (provider === 'workers_ai' && cfAccount ? workersAiBaseUrl(cfAccount) : undefined);
 const defaults = DEFAULT_MODELS[provider];
-const modelList = values.models ?? (provider === 'workers_ai' ? [...new Set([defaults.planning, defaults.fast])].join(',') : '');
+const modelList = values.models ?? (provider === 'workers_ai' ? [...new Set([defaults.planning, defaults.fast, defaults.fallback])].join(',') : '');
 if (provider === 'workers_ai' && !baseUrl) {
   console.error('Falta CLOUDFLARE_ACCOUNT_ID en el entorno.');
   process.exit(1);

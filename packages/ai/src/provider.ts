@@ -18,8 +18,20 @@ export type ModelConfig = {
   headers?: Record<string, string> | undefined;
 };
 
-/** Workers AI acepta `response_format: json_schema` (JSON Mode compatible con OpenAI). Se confirma con scripts/eval-ai.ts. */
+/**
+ * Workers AI acepta `response_format: json_schema`. Confirmado con scripts/eval-ai.ts (2026-10-22): sin el esquema
+ * (json_object) ningún modelo respetó la forma pedida.
+ */
 export const WORKERS_AI_JSON_SCHEMA = true;
+
+/**
+ * Campos extra por modelo en Workers AI. Gemma 4 razona por defecto y en tareas largas (rutina, plan) gastaba todo el
+ * límite de tokens pensando sin llegar al JSON; sin «thinking» entrega rutinas válidas con un tercio de las neuronas.
+ */
+export function workersAiRequestExtras(modelId: string): Record<string, unknown> {
+  if (modelId.startsWith('@cf/google/gemma-4')) return { chat_template_kwargs: { enable_thinking: false } };
+  return {};
+}
 
 /** Construye el modelo del Vercel AI SDK para el proveedor elegido. Solo se llama desde el servidor. */
 export function resolveModel(config: ModelConfig): LanguageModel {
@@ -40,6 +52,7 @@ export function resolveModel(config: ModelConfig): LanguageModel {
         apiKey: config.apiKey,
         baseURL,
         supportsStructuredOutputs: config.structuredOutputs ?? WORKERS_AI_JSON_SCHEMA,
+        transformRequestBody: (body) => ({ ...workersAiRequestExtras(config.modelId), ...body }),
         ...(config.headers ? { headers: config.headers } : {}),
       })(config.modelId);
     }

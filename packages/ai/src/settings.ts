@@ -142,11 +142,13 @@ export const DEFAULT_MODELS: Record<AiProvider, AiModels> = {
   },
   openai_compatible: { planning: '', fast: '', vision: '', fallback: '' },
   // Sonnet para planificar porque Opus no está en todos los planes; con Max puede cambiarse a claude-opus-5-5.
+  // Evaluado 2026-10-22: Gemma 4 sin «thinking» pasó rutina, plan, revisión y traducción en dos corridas; gpt-oss
+  // falló rutina y plan, pero sirve de respaldo en las tareas cortas.
   workers_ai: {
-    planning: '@cf/openai/gpt-oss-120b',
+    planning: '@cf/google/gemma-4-26b-a4b-it',
     fast: '@cf/google/gemma-4-26b-a4b-it',
     vision: '@cf/google/gemma-4-26b-a4b-it',
-    fallback: '@cf/google/gemma-4-26b-a4b-it',
+    fallback: '@cf/openai/gpt-oss-120b',
   },
   claude_code: {
     planning: 'claude-sonnet-5-5',
