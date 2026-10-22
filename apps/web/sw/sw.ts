@@ -52,8 +52,8 @@ self.addEventListener('push', (event) => {
       await self.registration.showNotification(data.title ?? 'Stenia', {
         body: data.body ?? '',
         tag: data.tag ?? 'stenia',
-        icon: '/icons/icon.svg',
-        badge: '/icons/icon-maskable.svg',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/badge-96.png',
         data: { url: data.url ?? '/hoy' },
       });
     })(),

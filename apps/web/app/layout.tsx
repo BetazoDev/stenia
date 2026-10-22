@@ -13,7 +13,8 @@ export const metadata: Metadata = {
   applicationName: 'Stenia',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Stenia' },
-  icons: { icon: '/icons/icon.svg', apple: '/icons/apple-touch-icon.svg' },
+  // iOS no acepta SVG en el ícono de inicio: PNG de 180 px sin esquinas (iOS las redondea).
+  icons: { icon: '/icons/icon.svg', apple: { url: '/icons/apple-touch-icon.png', sizes: '180x180' } },
 };
 
 export const viewport: Viewport = {
