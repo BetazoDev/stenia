@@ -57,7 +57,9 @@ export async function upsertExercise(
   equipmentIds: Map<string, string>,
   summary: ImportSummary,
 ): Promise<string> {
-  const values = { ...input, searchText: normalizeText(`${input.nameEs} ${input.nameEn}`) };
+  // Un músculo principal no se repite como secundario (algunas fuentes lo listan en ambos).
+  const secondaryMuscles = (input.secondaryMuscles ?? []).filter((m) => !(input.primaryMuscles ?? []).includes(m));
+  const values = { ...input, secondaryMuscles, searchText: normalizeText(`${input.nameEs} ${input.nameEn}`) };
   const [row] = await db
     .insert(exercise)
     .values(values)
@@ -69,7 +71,7 @@ export async function upsertExercise(
         pattern: input.pattern,
         category: input.category,
         primaryMuscles: input.primaryMuscles,
-        secondaryMuscles: input.secondaryMuscles,
+        secondaryMuscles,
         loadType: input.loadType,
         level: input.level,
         mechanic: input.mechanic,

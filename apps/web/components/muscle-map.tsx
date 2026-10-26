@@ -2,59 +2,62 @@ import { MUSCLE_LABELS_ES, type MuscleGroup } from '@stenia/core';
 
 import { cn } from '@/lib/utils';
 
-type Region = { muscle: MuscleGroup; d: string };
+/**
+ * Silueta esquemática (frente y espalda). Cada región se dibuja del lado izquierdo de la imagen y se refleja al
+ * derecho (`mirror`), así ambos lados coinciden siempre y cada músculo queda sobre su parte del cuerpo.
+ */
+type Region = { muscle: MuscleGroup | null; d: string; mirror?: boolean };
 
-/** Silueta esquemática (frente y espalda) con regiones por grupo muscular. */
+const HEAD = 'M100 8c8 0 13 7 13 16s-5 17-13 17-13-8-13-17 5-16 13-16z';
+const HAND = 'M60 144c3-1 8-1 10 0l1 11c-2 3-9 3-12 0z';
+const KNEE = 'M84 197h12l-1 9H85z';
+const FOOT = 'M85 254h10l2 9H82z';
+
 const FRONT: Region[] = [
-  { muscle: 'neck', d: 'M92 44h16v14H92z' },
-  { muscle: 'traps', d: 'M78 58l22-6 22 6-6 8H84z' },
-  { muscle: 'front_delts', d: 'M64 64c6-6 14-8 20-6l-2 22c-8 0-14-4-18-16z' },
-  { muscle: 'front_delts', d: 'M136 64c-6-6-14-8-20-6l2 22c8 0 14-4 18-16z' },
-  { muscle: 'side_delts', d: 'M58 70c2-6 4-8 6-8 2 10 6 16 12 18l-4 6c-8-2-14-8-14-16z' },
-  { muscle: 'side_delts', d: 'M142 70c-2-6-4-8-6-8-2 10-6 16-12 18l4 6c8-2 14-8 14-16z' },
-  { muscle: 'chest', d: 'M84 66h15v26c-8 2-16 0-20-6z' },
-  { muscle: 'chest', d: 'M116 66h-15v26c8 2 16 0 20-6z' },
-  { muscle: 'biceps', d: 'M60 90l12 2-2 26-12-2z' },
-  { muscle: 'biceps', d: 'M140 90l-12 2 2 26 12-2z' },
-  { muscle: 'forearms', d: 'M56 120l12 2-4 34-11-2z' },
-  { muscle: 'forearms', d: 'M144 120l-12 2 4 34 11-2z' },
-  { muscle: 'abs', d: 'M88 96h24v52H88z' },
-  { muscle: 'obliques', d: 'M78 96l9 2v44l-8-6z' },
-  { muscle: 'obliques', d: 'M122 96l-9 2v44l8-6z' },
-  { muscle: 'hip_flexors', d: 'M82 148h14l-4 12H84z' },
-  { muscle: 'hip_flexors', d: 'M118 148h-14l4 12h8z' },
-  { muscle: 'quads', d: 'M80 162h18l-2 58H82z' },
-  { muscle: 'quads', d: 'M120 162h-18l2 58h14z' },
-  { muscle: 'adductors', d: 'M97 162h6l-2 40h-2z' },
-  { muscle: 'calves', d: 'M82 230h13l-2 44h-9z' },
-  { muscle: 'calves', d: 'M118 230h-13l2 44h9z' },
+  { muscle: null, d: HEAD },
+  { muscle: 'neck', d: 'M93 39h14l1 8H92z' },
+  { muscle: 'traps', d: 'M92 47l-12 7h14z', mirror: true },
+  { muscle: 'side_delts', d: 'M78 54c-9 0-15 5-17 13l-1 10 5-4c1-7 5-12 13-15z', mirror: true },
+  { muscle: 'front_delts', d: 'M79 55c-8 3-12 8-13 15l-1 6c4-3 8-4 12-3l3-10z', mirror: true },
+  { muscle: 'chest', d: 'M81 55h18v27c-7 4-14 3-20-2l-2-8z', mirror: true },
+  { muscle: 'biceps', d: 'M64 79c4-3 9-4 13-3l-1 14-2 15h-10c-2-8-2-17 0-26z', mirror: true },
+  { muscle: 'forearms', d: 'M63 108h11c0 12-2 24-4 35h-9c-1-12-1-24 2-35z', mirror: true },
+  { muscle: null, d: HAND, mirror: true },
+  { muscle: 'abs', d: 'M90 86h20v40c-6 5-14 5-20 0z' },
+  { muscle: 'obliques', d: 'M78 82c4 3 8 5 11 5v40l-7-5c-2-13-3-27-4-40z', mirror: true },
+  { muscle: 'hip_flexors', d: 'M82 124l7 5 6 10H83z', mirror: true },
+  { muscle: 'quads', d: 'M81 141h14c1 18 1 37-1 55H84c-3-18-4-37-3-55z', mirror: true },
+  { muscle: 'adductors', d: 'M96 141h3.5v32l-3 4z', mirror: true },
+  { muscle: null, d: KNEE, mirror: true },
+  { muscle: 'calves', d: 'M84 208h12c1 15 0 30-3 44h-7c-3-14-3-29-2-44z', mirror: true },
+  { muscle: null, d: FOOT, mirror: true },
 ];
 
 const BACK: Region[] = [
-  { muscle: 'neck', d: 'M92 44h16v12H92z' },
-  { muscle: 'traps', d: 'M76 58l24-8 24 8-8 22-16-6-16 6z' },
-  { muscle: 'rear_delts', d: 'M60 66c4-6 10-8 16-8l2 18c-8 2-14-2-18-10z' },
-  { muscle: 'rear_delts', d: 'M140 66c-4-6-10-8-16-8l-2 18c8 2 14-2 18-10z' },
-  { muscle: 'upper_back', d: 'M84 80l16 6 16-6v14H84z' },
-  { muscle: 'lats', d: 'M76 84l8 2v28l-8 12z' },
-  { muscle: 'lats', d: 'M124 84l-8 2v28l8 12z' },
-  { muscle: 'triceps', d: 'M60 88l12 2-2 28-12-2z' },
-  { muscle: 'triceps', d: 'M140 88l-12 2 2 28 12-2z' },
-  { muscle: 'forearms', d: 'M56 120l12 2-4 34-11-2z' },
-  { muscle: 'forearms', d: 'M144 120l-12 2 4 34 11-2z' },
-  { muscle: 'lower_back', d: 'M86 116h28v30H86z' },
-  { muscle: 'glutes', d: 'M80 148h19v24H82z' },
-  { muscle: 'glutes', d: 'M120 148h-19v24h17z' },
-  { muscle: 'abductors', d: 'M76 150l4-2v20l-4-4z' },
-  { muscle: 'abductors', d: 'M124 150l-4-2v20l4-4z' },
-  { muscle: 'hamstrings', d: 'M81 176h17l-2 48H83z' },
-  { muscle: 'hamstrings', d: 'M119 176h-17l2 48h13z' },
-  { muscle: 'calves', d: 'M82 230h13l-1 46h-10z' },
-  { muscle: 'calves', d: 'M118 230h-13l1 46h10z' },
+  { muscle: null, d: HEAD },
+  { muscle: 'neck', d: 'M93 39h14l1 6H92z' },
+  { muscle: 'traps', d: 'M100 44l22 11-12 6-10 25-10-25-12-6z' },
+  { muscle: 'rear_delts', d: 'M78 54c-9 0-15 5-17 13l-1 10c5-4 11-6 17-5l3-11z', mirror: true },
+  { muscle: 'upper_back', d: 'M80 57l10 5 7 22-13-3-5-11z', mirror: true },
+  { muscle: 'lats', d: 'M78 73c2 5 4 8 6 9l14 4v10l-8 9-8 15c-2-15-4-31-4-47z', mirror: true },
+  { muscle: 'lower_back', d: 'M90 106l9-9h2l9 9 1 22c-7 4-15 4-22 0z' },
+  { muscle: 'triceps', d: 'M64 79c4-3 9-4 13-3l-1 14-2 15h-10c-2-8-2-17 0-26z', mirror: true },
+  { muscle: 'forearms', d: 'M63 108h11c0 12-2 24-4 35h-9c-1-12-1-24 2-35z', mirror: true },
+  { muscle: null, d: HAND, mirror: true },
+  { muscle: 'abductors', d: 'M78 124l3 5-1 20-3-5z', mirror: true },
+  { muscle: 'glutes', d: 'M81 132c5-5 13-5 18-1v22c-5 5-13 5-18 0z', mirror: true },
+  {
+    muscle: 'hamstrings',
+    d: 'M81 157c5 2 12 2 18 0 0 13-1 26-4 39H85c-3-13-4-26-4-39z',
+    mirror: true,
+  },
+  { muscle: null, d: KNEE, mirror: true },
+  { muscle: 'calves', d: 'M84 208h12c2 12 1 25-2 36l-1 8h-7l-1-8c-3-11-3-24-1-36z', mirror: true },
+  { muscle: null, d: FOOT, mirror: true },
 ];
 
-const OUTLINE =
-  'M100 8c10 0 16 8 16 18s-6 18-16 18-16-8-16-18 6-18 16-18zm-24 50c-8 2-16 6-20 14-4 10-4 22-6 36-2 18-6 34-8 48l12 2c4-14 8-30 10-46l2 22c-2 24-4 46-4 70 0 22 2 46 4 72h12l4-70h4l-2 70h12l4-72c0-24-2-46-4-70l2-22c2 16 6 32 10 46l12-2c-2-14-6-30-8-48-2-14-2-26-6-36-4-8-12-12-20-14';
+/** Divisiones del abdomen: solo dibujo, no son regiones. */
+const ABS_LINES = 'M100 87v39M90 99h20M90 111h20';
 
 type MuscleMapProps = {
   /** Intensidad 0–1 por grupo. */
@@ -65,22 +68,60 @@ type MuscleMapProps = {
   showLegend?: boolean;
 };
 
-function fillFor(value: number | undefined, secondary: boolean): string {
+function fillFor(
+  muscle: MuscleGroup | null,
+  intensity: MuscleMapProps['intensity'],
+  secondary: Set<MuscleGroup>,
+): string {
+  if (!muscle) return 'rgba(255, 255, 255, 0.05)';
+  const value = intensity[muscle] ?? intensity.full_body;
   if (value && value > 0) return `rgba(206, 0, 55, ${0.25 + Math.min(1, value) * 0.75})`;
-  if (secondary) return 'rgba(255, 255, 255, 0.28)';
-  return 'rgba(255, 255, 255, 0.06)';
+  if (secondary.has(muscle) || secondary.has('full_body')) return 'rgba(255, 255, 255, 0.3)';
+  return 'rgba(255, 255, 255, 0.08)';
 }
 
-function Figure({ regions, label, intensity, secondary }: { regions: Region[]; label: string; intensity: MuscleMapProps['intensity']; secondary: Set<MuscleGroup> }) {
+const MIRROR = 'matrix(-1 0 0 1 200 0)';
+
+function Figure({
+  regions,
+  label,
+  intensity,
+  secondary,
+  absLines,
+}: {
+  regions: Region[];
+  label: string;
+  intensity: MuscleMapProps['intensity'];
+  secondary: Set<MuscleGroup>;
+  absLines?: boolean;
+}) {
   return (
     <figure className="flex flex-col items-center gap-2">
-      <svg viewBox="40 0 120 290" className="h-56 w-auto md:h-64" role="img" aria-label={label}>
-        <path d={OUTLINE} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" strokeLinejoin="round" />
-        {regions.map((r, i) => (
-          <path key={`${r.muscle}-${i}`} d={r.d} fill={fillFor(intensity[r.muscle], secondary.has(r.muscle))} stroke="rgba(255,255,255,0.1)" strokeWidth="0.75">
-            <title>{MUSCLE_LABELS_ES[r.muscle]}</title>
-          </path>
-        ))}
+      <svg viewBox="52 4 96 262" className="h-56 w-auto md:h-64" role="img" aria-label={label}>
+        {regions.map((r, i) =>
+          (r.mirror ? [undefined, MIRROR] : [undefined]).map((transform) => (
+            <path
+              key={`${i}-${transform ?? 'l'}`}
+              d={r.d}
+              transform={transform}
+              fill={fillFor(r.muscle, intensity, secondary)}
+              stroke="rgba(255,255,255,0.22)"
+              strokeWidth="0.6"
+              strokeLinejoin="round"
+            >
+              {r.muscle ? <title>{MUSCLE_LABELS_ES[r.muscle]}</title> : null}
+            </path>
+          )),
+        )}
+        {absLines ? (
+          <path
+            d={ABS_LINES}
+            stroke="rgba(0,0,0,0.35)"
+            strokeWidth="0.8"
+            fill="none"
+            pointerEvents="none"
+          />
+        ) : null}
       </svg>
       <figcaption className="label">{label}</figcaption>
     </figure>
@@ -88,19 +129,29 @@ function Figure({ regions, label, intensity, secondary }: { regions: Region[]; l
 }
 
 /** Mapa muscular en SVG (ficha de ejercicio y mapa semanal de la sección 9.1). */
-export function MuscleMap({ intensity, secondary = [], className, showLegend = false }: MuscleMapProps) {
+export function MuscleMap({
+  intensity,
+  secondary = [],
+  className,
+  showLegend = false,
+}: MuscleMapProps) {
   const sec = new Set(secondary);
-  const active = (Object.entries(intensity) as [MuscleGroup, number][]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const active = (Object.entries(intensity) as [MuscleGroup, number][])
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]);
   return (
     <div className={cn('flex flex-col gap-4', className)}>
       <div className="flex justify-center gap-6">
-        <Figure regions={FRONT} label="Frente" intensity={intensity} secondary={sec} />
+        <Figure regions={FRONT} label="Frente" intensity={intensity} secondary={sec} absLines />
         <Figure regions={BACK} label="Espalda" intensity={intensity} secondary={sec} />
       </div>
       {showLegend && active.length > 0 ? (
         <ul className="flex flex-wrap gap-2">
           {active.map(([m]) => (
-            <li key={m} className="rounded-chip border border-border px-2.5 py-1 text-sm text-text-2">
+            <li
+              key={m}
+              className="rounded-chip border border-border px-2.5 py-1 text-sm text-text-2"
+            >
               {MUSCLE_LABELS_ES[m]}
             </li>
           ))}

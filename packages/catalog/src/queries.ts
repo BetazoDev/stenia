@@ -31,7 +31,7 @@ export async function loadCatalogExercises(db: Db): Promise<CatalogExercise[]> {
     loadType: r.loadType as LoadType,
     level: r.level as TrainingLevel,
     primaryMuscles: r.primaryMuscles as MuscleGroup[],
-    secondaryMuscles: r.secondaryMuscles as MuscleGroup[],
+    secondaryMuscles: (r.secondaryMuscles as MuscleGroup[]).filter((m) => !(r.primaryMuscles as MuscleGroup[]).includes(m)),
     equipment: Array.isArray(r.equipment) ? r.equipment : [],
     hasMedia: Boolean(r.hasMedia),
   }));

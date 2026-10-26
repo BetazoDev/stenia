@@ -44,6 +44,7 @@ export default async function ExerciseDetailPage({ params }: Props) {
   const translated = ex.instructionsEs.length > 0;
   const source = SOURCE_LABELS[ex.source];
   const intensity = Object.fromEntries(ex.primaryMuscles.map((m) => [m, 1])) as Partial<Record<MuscleGroup, number>>;
+  const secondaryMuscles = ex.secondaryMuscles.filter((m) => !ex.primaryMuscles.includes(m));
 
   return (
     <article className="flex flex-col gap-8">
@@ -66,15 +67,15 @@ export default async function ExerciseDetailPage({ params }: Props) {
           <ExerciseMedia start={media.start} end={media.end} main={media.main} alt={ex.nameEs} size="large" />
         </ViewTransition>
         <div className="flex flex-col gap-4">
-          <MuscleMap intensity={intensity} secondary={ex.secondaryMuscles as MuscleGroup[]} />
+          <MuscleMap intensity={intensity} secondary={secondaryMuscles as MuscleGroup[]} />
           <p className="text-sm text-text-2">
             <span className="label mr-2">Principales</span>
             {musclesText(ex.primaryMuscles) || '—'}
           </p>
-          {ex.secondaryMuscles.length > 0 ? (
+          {secondaryMuscles.length > 0 ? (
             <p className="text-sm text-text-2">
               <span className="label mr-2">Secundarios</span>
-              {musclesText(ex.secondaryMuscles)}
+              {musclesText(secondaryMuscles)}
             </p>
           ) : null}
         </div>
