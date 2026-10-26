@@ -52,6 +52,14 @@ const anyParqYes = (d: Draft) => PARQ_QUESTIONS.some((q) => getPath(d, ['safety'
 const isFemale = (d: Draft) => getPath(d, ['body', 'sex']) === 'female';
 
 export const STEPS: Step[] = [
+  // Primero el equipo: con él se eligen los ejercicios, y las fotos ayudan a reconocer cada máquina.
+  {
+    id: 'gym',
+    block: 'gym',
+    title: '¿Dónde vas a entrenar?',
+    hint: 'Elige un punto de partida y marca el equipo que tienes. Las fotos te ayudan a reconocer cada máquina.',
+    kind: 'gym',
+  },
   ...PARQ_QUESTIONS.map<Step>((q, i) => ({
     id: `parq-${q.id}`,
     block: 'safety',
@@ -243,7 +251,6 @@ export const STEPS: Step[] = [
   { id: 'favorites', block: 'recovery', title: '¿Tienes ejercicios favoritos?', hint: 'Sepáralos con comas.', kind: 'text', path: ['recovery', 'favorites'], optional: true },
   { id: 'banned', block: 'recovery', title: '¿Hay ejercicios que no quieres hacer?', hint: 'Sepáralos con comas.', kind: 'text', path: ['recovery', 'banned'], optional: true },
 
-  { id: 'gym', block: 'gym', title: '¿Dónde vas a entrenar?', hint: 'Puedes ajustar el equipo exacto después en Equipamiento.', kind: 'gym' },
 ];
 
 function isFemaleHint(): string {

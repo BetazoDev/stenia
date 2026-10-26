@@ -13,7 +13,6 @@ import {
   type ScreeningResult,
 } from '@stenia/core';
 import { revalidatePath } from 'next/cache';
-import { createPresetProfile, type GymPreset } from '@/lib/gym';
 import { completeOnboarding, recordScreening, saveBlock } from '@/lib/profile';
 import { requireSession } from '@/lib/session';
 
@@ -55,14 +54,6 @@ export async function recordScreeningAction(decision: 'accepted' | 'declined' | 
   const { user } = await requireSession();
   const result = await recordScreening(user.id, decision);
   return { ok: true, result };
-}
-
-export async function createPresetGymAction(preset: GymPreset): Promise<ActionResult> {
-  const { user } = await requireSession();
-  if (!['gym', 'home', 'park'].includes(preset)) return { ok: false, message: 'Preajuste inválido.' };
-  await createPresetProfile(user.id, preset);
-  revalidatePath('/equipo');
-  return { ok: true };
 }
 
 export async function finishOnboardingAction(): Promise<ActionResult> {

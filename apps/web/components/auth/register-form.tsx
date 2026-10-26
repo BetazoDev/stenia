@@ -52,7 +52,8 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-4xl">Crea tu cuenta</h1>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {/* method="post": si se envía antes de que cargue el JS, la contraseña nunca queda en la URL. */}
+      <form method="post" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <Field>
           <Label htmlFor="name">Nombre</Label>
           <Input id="name" name="name" autoComplete="name" required />

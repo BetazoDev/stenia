@@ -1,30 +1,12 @@
 import 'server-only';
 
 import { equipment, gymProfile, gymProfileEquipment, type EquipmentMeta } from '@stenia/db';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import { getDb } from './db';
+import { PRESET_EQUIPMENT, PRESET_LABELS, type EquipmentItem, type GymPreset } from './gym-presets';
 
-export type GymPreset = 'gym' | 'home' | 'park';
-
-export const PRESET_LABELS: Record<GymPreset, { label: string; description: string }> = {
-  gym: { label: 'Gimnasio completo', description: 'Máquinas, peso libre, barras y paralelas.' },
-  home: { label: 'Casa', description: 'Mancuernas, banco, bandas y barra de puerta.' },
-  park: { label: 'Parque de calistenia', description: 'Barras, paralelas, suelo y espacio para saltos.' },
-};
-
-/** Equipo de cada preajuste (slugs de la semilla de `equipment`). */
-export const PRESET_EQUIPMENT: Record<GymPreset, string[]> = {
-  gym: [
-    'leg_press', 'hack_squat', 'leg_extension', 'leg_curl', 'hip_adductor_abductor', 'cable_high', 'cable_low',
-    'cable_crossover', 'lat_pulldown', 'seated_row', 'chest_press_machine', 'pec_deck', 'smith_machine', 'calf_machine',
-    'assisted_dip_pullup_machine', 'machine_generic', 'dumbbells', 'barbell', 'ez_bar', 'plates', 'kettlebells',
-    'bench_flat', 'bench_incline', 'rack', 'pull_up_bar', 'parallel_bars', 'dip_station', 'bands', 'floor_space',
-    'jump_space', 'stability_ball', 'medicine_ball', 'ab_wheel', 'dip_belt',
-  ],
-  home: ['dumbbells', 'bench_flat', 'bands', 'pull_up_bar', 'floor_space', 'wall_handstand'],
-  park: ['pull_up_bar', 'parallel_bars', 'dip_station', 'wall_bars', 'floor_space', 'jump_space', 'wall_handstand'],
-};
+export { PRESET_EQUIPMENT, PRESET_LABELS, type EquipmentItem, type GymPreset } from './gym-presets';
 
 export const DEFAULT_META: Record<string, EquipmentMeta> = {
   dumbbells: { dumbbellMinKg: 2.5, dumbbellMaxKg: 40, dumbbellStepKg: 2.5 },
@@ -40,6 +22,94 @@ export type GymProfileWithEquipment = typeof gymProfile.$inferSelect & {
 
 export async function listEquipment() {
   return getDb().select().from(equipment).orderBy(asc(equipment.sortOrder));
+}
+
+/** Ejercicio que mejor muestra cada máquina o implemento (fotos de referencia de catálogos abiertos). */
+const PHOTO_EXERCISE: Record<string, string> = {
+  ab_wheel: 'rep-ab-wheel-rollout',
+  assisted_dip_pullup_machine: 'rep-assisted-pull-ups',
+  bands: 'fed-band-pull-apart',
+  barbell: 'fed-barbell-deadlift',
+  bench_flat: 'fed-barbell-bench-press-medium-grip',
+  bench_incline: 'fed-incline-dumbbell-press',
+  cable_crossover: 'fed-cable-crossover',
+  cable_high: 'fed-triceps-pushdown',
+  cable_low: 'fed-standing-biceps-cable-curl',
+  calf_machine: 'fed-standing-calf-raises',
+  cardio_machine: 'rep-treadmill-running',
+  chest_press_machine: 'rep-chest-press-machine',
+  dip_belt: 'fed-weighted-pull-ups',
+  dip_station: 'fed-dips-chest-version',
+  dumbbells: 'fed-dumbbell-bicep-curl',
+  ez_bar: 'fed-ez-bar-curl',
+  floor_space: 'cal-forearm-plank',
+  foam_roller: 'fed-quadriceps-smr',
+  hack_squat: 'fed-hack-squat',
+  hip_adductor_abductor: 'fed-thigh-abductor',
+  jump_rope: 'rep-jump-rope',
+  jump_space: 'cal-star-jump',
+  kettlebells: 'fed-one-arm-kettlebell-swings',
+  lat_pulldown: 'fed-wide-grip-lat-pulldown',
+  leg_curl: 'fed-lying-leg-curls',
+  leg_extension: 'fed-leg-extensions',
+  leg_press: 'fed-leg-press',
+  machine_generic: 'fed-leverage-chest-press',
+  medicine_ball: 'fed-medicine-ball-chest-pass',
+  other_equipment: 'fed-farmers-walk',
+  parallel_bars: 'fed-dips-chest-version',
+  pec_deck: 'fed-butterfly',
+  plates: 'fed-front-plate-raise',
+  plyo_box: 'fed-front-box-jump',
+  pull_up_bar: 'fed-pullups',
+  rack: 'fed-barbell-squat',
+  rings: 'rep-ring-row',
+  seated_row: 'fed-seated-cable-rows',
+  sled: 'rep-sled-push',
+  smith_machine: 'fed-smith-machine-squat',
+  stability_ball: 'fed-exercise-ball-crunch',
+  trap_bar: 'rep-hex-bar-deadlift',
+  trx: 'rep-trx-row',
+  wall_handstand: 'cal-handstand-hold',
+};
+
+let photoCache: { at: number; photos: Map<string, string> } | null = null;
+
+/**
+ * Foto de referencia por equipo: la del ejercicio elegido arriba y, si falta, la de un ejercicio que solo use ese
+ * equipo. Se guarda una hora en memoria (el catálogo casi no cambia).
+ */
+export async function equipmentPhotos(): Promise<Map<string, string>> {
+  if (photoCache && Date.now() - photoCache.at < 3_600_000 && photoCache.photos.size > 0) return photoCache.photos;
+  const db = getDb();
+  const auto = await db.execute<{ slug: string; url: string }>(sql`
+    select distinct on (q.slug) q.slug, m.url
+    from equipment q
+    join exercise_equipment ee on ee.equipment_id = q.id and ee.required
+    join exercise x on x.id = ee.exercise_id and x.active
+    join exercise_media m on m.exercise_id = x.id and m.type = 'image'
+    order by q.slug,
+      (select count(*) from exercise_equipment e2 where e2.exercise_id = x.id and e2.required),
+      (m.source = 'repdb'), m.sort_order, x.slug`);
+  const curated = await db.execute<{ slug: string; url: string }>(sql`
+    select distinct on (x.slug) x.slug, m.url
+    from exercise x
+    join exercise_media m on m.exercise_id = x.id and m.type = 'image'
+    where x.slug in (${sql.join(Object.values(PHOTO_EXERCISE).map((s) => sql`${s}`), sql`, `)})
+    order by x.slug, (m.role = 'end'), m.sort_order`);
+  const byExercise = new Map(curated.rows.map((r) => [r.slug, r.url]));
+  const photos = new Map(auto.rows.map((r) => [r.slug, r.url]));
+  for (const [slug, exerciseSlug] of Object.entries(PHOTO_EXERCISE)) {
+    const url = byExercise.get(exerciseSlug);
+    if (url) photos.set(slug, url);
+  }
+  photoCache = { at: Date.now(), photos };
+  return photos;
+}
+
+/** Catálogo de equipamiento con su foto de referencia, en el orden de la semilla. */
+export async function listEquipmentWithPhotos(): Promise<EquipmentItem[]> {
+  const [catalog, photos] = await Promise.all([listEquipment(), equipmentPhotos()]);
+  return catalog.map((e) => ({ slug: e.slug, nameEs: e.nameEs, category: e.category, photoUrl: photos.get(e.slug) ?? null }));
 }
 
 export async function listGymProfiles(userId: string): Promise<GymProfileWithEquipment[]> {

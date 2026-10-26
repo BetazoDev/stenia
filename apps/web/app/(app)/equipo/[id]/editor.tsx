@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
+import { EquipmentChecklist } from '@/components/equipment-checklist';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldHint, Label } from '@/components/ui/label';
-import { Option } from '@/components/ui/option';
+import type { EquipmentItem } from '@/lib/gym-presets';
 
 import { saveGymProfileAction } from '../actions';
 
@@ -21,19 +22,8 @@ type Meta = {
 
 type Props = {
   profile: { id: string; name: string; kind: string; equipment: { slug: string; meta: Meta }[] };
-  catalog: { slug: string; nameEs: string; category: string }[];
+  catalog: EquipmentItem[];
 };
-
-const CATEGORY_LABELS: Record<string, string> = {
-  machine: 'Máquinas',
-  free_weight: 'Peso libre',
-  structure: 'Estructuras',
-  space: 'Espacio',
-  weighted: 'Lastre',
-  other: 'Otros',
-};
-
-const ORDER = ['machine', 'free_weight', 'structure', 'space', 'weighted', 'other'];
 
 export function GymEditor({ profile, catalog }: Props) {
   const router = useRouter();
@@ -42,7 +32,6 @@ export function GymEditor({ profile, catalog }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
-  const groups = useMemo(() => ORDER.map((c) => ({ category: c, items: catalog.filter((e) => e.category === c) })).filter((g) => g.items.length), [catalog]);
 
   const toggle = (slug: string) =>
     setSelected((prev) => {
@@ -92,46 +81,45 @@ export function GymEditor({ profile, catalog }: Props) {
         </Field>
       </header>
 
-      {groups.map((g) => (
-        <section key={g.category} className="flex flex-col gap-3">
-          <h2 className="text-xl">{CATEGORY_LABELS[g.category] ?? g.category}</h2>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {g.items.map((e) => (
-              <Option key={e.slug} multi selected={selected.has(e.slug)} label={e.nameEs} onSelect={() => toggle(e.slug)} />
-            ))}
-          </div>
-          {g.category === 'free_weight' && dumbbells ? (
-            <Card className="grid grid-cols-3 gap-3">
-              <Field>
-                <Label htmlFor="db-min">Mancuerna mín.</Label>
-                <Input id="db-min" type="number" inputMode="decimal" value={dumbbells.dumbbellMinKg ?? ''} onChange={(ev) => setMeta('dumbbells', { dumbbellMinKg: num(ev.target.value) })} />
-              </Field>
-              <Field>
-                <Label htmlFor="db-max">Máx. (kg)</Label>
-                <Input id="db-max" type="number" inputMode="decimal" value={dumbbells.dumbbellMaxKg ?? ''} onChange={(ev) => setMeta('dumbbells', { dumbbellMaxKg: num(ev.target.value) })} />
-              </Field>
-              <Field>
-                <Label htmlFor="db-step">Incremento</Label>
-                <Input id="db-step" type="number" inputMode="decimal" value={dumbbells.dumbbellStepKg ?? ''} onChange={(ev) => setMeta('dumbbells', { dumbbellStepKg: num(ev.target.value) })} />
-              </Field>
-              <FieldHint className="col-span-3">El incremento es el paso mínimo que usa el motor de progresión.</FieldHint>
-            </Card>
-          ) : null}
-          {g.category === 'weighted' && weighted ? (
-            <Card className="grid grid-cols-2 gap-3">
-              <Field>
-                <Label htmlFor="w-kg">Kg disponibles</Label>
-                <Input id="w-kg" type="number" inputMode="decimal" value={selected.get(weighted)?.weightedKgAvailable ?? ''} onChange={(ev) => setMeta(weighted, { weightedKgAvailable: num(ev.target.value) })} />
-              </Field>
-              <Field>
-                <Label htmlFor="w-step">Paso mínimo</Label>
-                <Input id="w-step" type="number" inputMode="decimal" value={selected.get(weighted)?.weightedStepKg ?? ''} onChange={(ev) => setMeta(weighted, { weightedStepKg: num(ev.target.value) })} />
-              </Field>
-              <FieldHint className="col-span-2">El lastre habilita la progresión con peso en dominadas y fondos.</FieldHint>
-            </Card>
-          ) : null}
-        </section>
-      ))}
+      <EquipmentChecklist
+        catalog={catalog}
+        selected={new Set(selected.keys())}
+        onToggle={toggle}
+        renderAfter={(category) => (
+          <>
+              {category === 'free_weight' && dumbbells ? (
+                <Card className="grid grid-cols-3 gap-3">
+                  <Field>
+                    <Label htmlFor="db-min">Mancuerna mín.</Label>
+                    <Input id="db-min" type="number" inputMode="decimal" value={dumbbells.dumbbellMinKg ?? ''} onChange={(ev) => setMeta('dumbbells', { dumbbellMinKg: num(ev.target.value) })} />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="db-max">Máx. (kg)</Label>
+                    <Input id="db-max" type="number" inputMode="decimal" value={dumbbells.dumbbellMaxKg ?? ''} onChange={(ev) => setMeta('dumbbells', { dumbbellMaxKg: num(ev.target.value) })} />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="db-step">Incremento</Label>
+                    <Input id="db-step" type="number" inputMode="decimal" value={dumbbells.dumbbellStepKg ?? ''} onChange={(ev) => setMeta('dumbbells', { dumbbellStepKg: num(ev.target.value) })} />
+                  </Field>
+                  <FieldHint className="col-span-3">El incremento es el paso mínimo que usa el motor de progresión.</FieldHint>
+                </Card>
+              ) : null}
+              {category === 'weighted' && weighted ? (
+                <Card className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <Label htmlFor="w-kg">Kg disponibles</Label>
+                    <Input id="w-kg" type="number" inputMode="decimal" value={selected.get(weighted)?.weightedKgAvailable ?? ''} onChange={(ev) => setMeta(weighted, { weightedKgAvailable: num(ev.target.value) })} />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="w-step">Paso mínimo</Label>
+                    <Input id="w-step" type="number" inputMode="decimal" value={selected.get(weighted)?.weightedStepKg ?? ''} onChange={(ev) => setMeta(weighted, { weightedStepKg: num(ev.target.value) })} />
+                  </Field>
+                  <FieldHint className="col-span-2">El lastre habilita la progresión con peso en dominadas y fondos.</FieldHint>
+                </Card>
+              ) : null}
+          </>
+        )}
+      />
 
       <div className="sticky bottom-20 flex flex-wrap items-center gap-3 border-t border-border bg-bg py-3 md:bottom-0">
         <Button disabled={pending} onClick={save}>

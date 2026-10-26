@@ -22,6 +22,7 @@ const SaveInput = z.object({
   name: z.string().trim().min(1, 'Ponle un nombre').max(60),
   kind: z.enum(['gym', 'home', 'park']),
   equipment: z.array(z.object({ slug: z.string().min(1).max(60), meta: Meta.optional() })).max(80),
+  active: z.boolean().optional(),
 });
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; message: string };

@@ -10,6 +10,8 @@ const NOT_FOUND = new Set(['ENOTFOUND', 'ENODATA', 'NXDOMAIN']);
  */
 export async function domainReceivesMail(email: string): Promise<boolean> {
   const domain = email.slice(email.lastIndexOf('@') + 1);
+  // Dominios reservados para pruebas (RFC 2606/6761): válidos en local y en las e2e, nunca en el servidor desplegado.
+  if (process.env.STENIA_DEPLOYMENT !== 'server' && /(^|\.)(example\.(com|net|org)|test|localhost|invalid)$/.test(domain)) return true;
   const resolver = new Resolver({ timeout: 3000, tries: 1 });
   const lookups: (() => Promise<unknown[]>)[] = [() => resolver.resolveMx(domain), () => resolver.resolve4(domain), () => resolver.resolve6(domain)];
   for (const lookup of lookups) {

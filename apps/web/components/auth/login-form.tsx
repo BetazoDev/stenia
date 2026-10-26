@@ -37,7 +37,8 @@ export function LoginForm({ googleEnabled, next }: { googleEnabled: boolean; nex
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-4xl">Entra a tu entrenamiento</h1>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {/* method="post": si se envía antes de que cargue el JS, la contraseña nunca queda en la URL. */}
+      <form method="post" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <Field>
           <Label htmlFor="email">Correo</Label>
           <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" required />

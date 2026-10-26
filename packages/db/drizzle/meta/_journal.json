@@ -43,6 +43,13 @@
       "when": 1792694906813,
       "tag": "0005_proveedor_workers_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792989231459,
+      "tag": "0006_reparar_perfiles_sin_equipo",
+      "breakpoints": true
     }
   ]
 }
