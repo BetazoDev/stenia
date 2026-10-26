@@ -1,6 +1,6 @@
 import { date, integer, jsonb, pgEnum, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
-import { createdAt, id, updatedAt } from './_shared';
+import { createdAt, id, tz, updatedAt } from './_shared';
 import { user } from './auth';
 import { exercise } from './catalog';
 import { gymProfile } from './equipment';
@@ -22,6 +22,8 @@ export const routine = pgTable('routine', {
   blockWeeks: integer('block_weeks').notNull().default(8),
   /** Semana de descarga cada N semanas (4–8). */
   deloadEveryWeeks: integer('deload_every_weeks').notNull().default(6),
+  /** «Reiniciar semana/ciclo»: la rotación de días ignora las sesiones anteriores a esta marca. */
+  rotationResetAt: tz('rotation_reset_at'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

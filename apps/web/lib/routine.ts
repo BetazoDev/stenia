@@ -36,7 +36,7 @@ import {
   routineVersion,
   workoutSession,
 } from '@stenia/db';
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, ne } from 'drizzle-orm';
 
 import { runAi } from './ai';
 import { getDb } from './db';
@@ -406,14 +406,20 @@ export async function listRoutineVersions(userId: string) {
     .orderBy(desc(routineVersion.createdAt));
 }
 
-/** Siguiente día de la rotación: el que sigue al último entrenado. */
+/** Siguiente día de la rotación: el que sigue al último entrenado (desde el último «reiniciar semana/ciclo»). */
 export async function nextRoutineDay(userId: string, view: RoutineView): Promise<RoutineDayView | null> {
   if (view.days.length === 0) return null;
   const db = getDb();
   const [last] = await db
     .select({ dayId: workoutSession.routineDayId })
     .from(workoutSession)
-    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, 'completed')))
+    .where(
+      and(
+        eq(workoutSession.userId, userId),
+        eq(workoutSession.status, 'completed'),
+        view.rotationResetAt ? gt(workoutSession.startedAt, view.rotationResetAt) : undefined,
+      ),
+    )
     .orderBy(desc(workoutSession.startedAt))
     .limit(1);
   if (!last?.dayId) return view.days[0] ?? null;

@@ -1,0 +1,1 @@
+ALTER TABLE "routine" ADD COLUMN "rotation_reset_at" timestamp with time zone;

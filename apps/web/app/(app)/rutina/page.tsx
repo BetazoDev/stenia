@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { BlockProgress } from '@/components/block-progress';
 import { ExerciseMedia } from '@/components/exercise-media';
+import { RestartControls } from '@/components/session/restart-controls';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
@@ -125,6 +126,10 @@ export default async function RoutinePage() {
           <Link href="/onboarding?resumen=1">Editar cuestionario</Link>
         </Button>
       </div>
+
+      <section id="reiniciar" className="scroll-mt-6">
+        <RestartControls />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-2xl">Historial de versiones</h2>

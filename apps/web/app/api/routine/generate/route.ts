@@ -1,5 +1,6 @@
 import { requireApiUser } from '@/lib/api';
 import { generateRoutine, GenerationError, type GenerationEvent } from '@/lib/routine';
+import { latestActiveSession } from '@/lib/training-day';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -13,6 +14,7 @@ export async function POST() {
     async start(controller) {
       const send = (event: GenerationEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
+        if (await latestActiveSession(user.id)) throw new GenerationError('Tienes una sesión sin terminar: termínala o descártala antes de generar otra rutina.');
         await generateRoutine(user.id, send);
       } catch (error) {
         const message = error instanceof GenerationError || error instanceof Error ? error.message : 'No se pudo generar la rutina.';
