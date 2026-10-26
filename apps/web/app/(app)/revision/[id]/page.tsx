@@ -106,6 +106,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
             trigger={row.trigger}
             sex={(profile?.sex as 'male' | 'female' | null) ?? null}
             weightAvg7d={weights.avg7d}
+            lastWeight={weights.raw[weights.raw.length - 1]?.value ?? null}
             initial={row.aiSummary ? { summary: row.aiSummary, proposals, generator: metrics.generator ?? 'rules', aiMessage: metrics.aiMessage ?? null } : null}
           />
           {type === 'early' && !row.aiSummary ? (

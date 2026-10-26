@@ -24,6 +24,8 @@ type Props = {
   trigger: string | null;
   sex: 'male' | 'female' | null;
   weightAvg7d: number | null;
+  /** Último peso registrado: pista en el campo para escribir el de hoy. */
+  lastWeight?: number | null;
   initial: { summary: string; proposals: StoredProposal[]; generator: 'llm' | 'rules'; aiMessage: string | null } | null;
 };
 
@@ -37,7 +39,7 @@ const CM_FIELDS = [
   { key: 'thighCm', label: 'Muslo' },
 ] as const;
 
-export function CheckinFlow({ id, type, trigger, sex, weightAvg7d, initial }: Props) {
+export function CheckinFlow({ id, type, trigger, sex, weightAvg7d, lastWeight = null, initial }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +202,15 @@ export function CheckinFlow({ id, type, trigger, sex, weightAvg7d, initial }: Pr
       <Card className="flex flex-col gap-6">
         <Field>
           <Label htmlFor="c-weight">Peso de hoy (kg)</Label>
-          <Input id="c-weight" type="number" inputMode="decimal" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} />
+          <Input
+            id="c-weight"
+            type="number"
+            inputMode="decimal"
+            step="0.1"
+            placeholder={lastWeight !== null ? `Último: ${lastWeight.toLocaleString('es-MX')}` : undefined}
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+          />
           <FieldHint>
             {weightAvg7d !== null ? `Promedio de los últimos 7 días: ${weightAvg7d.toLocaleString('es-MX')} kg. ` : ''}
             Opcional: nunca decidimos con un solo pesaje, usamos la tendencia.

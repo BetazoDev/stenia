@@ -33,6 +33,9 @@ export default async function MeasurementsPage() {
   const { user } = await requireSession();
   const [rows, series, latest, profile] = await Promise.all([listMeasurements(user.id), weightSeries(user.id), latestBodyComposition(user.id), getProfile(user.id)]);
   const trendNow = series.trend[series.trend.length - 1]?.value ?? null;
+  // Último valor registrado de cada medida (las filas vienen de la más reciente a la más vieja).
+  const lastOf = (key: 'weightKg' | 'neckCm' | 'waistCm' | 'hipCm' | 'armCm' | 'thighCm') => rows.find((r) => r[key] !== null)?.[key] ?? null;
+  const last = { weightKg: lastOf('weightKg'), neckCm: lastOf('neckCm'), waistCm: lastOf('waistCm'), hipCm: lastOf('hipCm'), armCm: lastOf('armCm'), thighCm: lastOf('thighCm') };
 
   return (
     <div className="flex flex-col gap-8">
@@ -74,7 +77,7 @@ export default async function MeasurementsPage() {
 
       <Card className="flex flex-col gap-5">
         <h2 className="text-xl">Nueva medición</h2>
-        <MeasurementForm today={localDateString()} sex={(profile?.sex as 'male' | 'female' | null) ?? null} />
+        <MeasurementForm today={localDateString()} sex={(profile?.sex as 'male' | 'female' | null) ?? null} last={last} />
       </Card>
 
       {rows.length > 0 ? (

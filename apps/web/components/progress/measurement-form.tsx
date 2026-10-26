@@ -19,7 +19,8 @@ const FIELDS = [
 
 type Key = (typeof FIELDS)[number]['key'];
 
-export function MeasurementForm({ today, sex }: { today: string; sex: 'male' | 'female' | null }) {
+/** `last`: último valor de cada medida, se muestra como pista para escribir el nuevo. */
+export function MeasurementForm({ today, sex, last = {} }: { today: string; sex: 'male' | 'female' | null; last?: Partial<Record<Key, number | null>> }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [date, setDate] = useState(today);
@@ -71,6 +72,7 @@ export function MeasurementForm({ today, sex }: { today: string; sex: 'male' | '
               type="number"
               inputMode="decimal"
               step={f.step}
+              placeholder={last[f.key] != null ? `Último: ${last[f.key]!.toLocaleString('es-MX')}` : undefined}
               value={values[f.key]}
               onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
             />
