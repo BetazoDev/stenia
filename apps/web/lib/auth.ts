@@ -1,11 +1,14 @@
 import 'server-only';
 
+import { checkEmailAddress } from '@stenia/core';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { APIError } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { account, session, user, verification } from '@stenia/db';
 
 import { getDb } from './db';
+import { domainReceivesMail } from './email-domain';
 import { env, isAdminEmail } from './env';
 
 export const COOKIE_PREFIX = 'stenia';
@@ -51,16 +54,30 @@ function buildAuth() {
     databaseHooks: {
       user: {
         create: {
-          before: async (data) => ({
-            data: {
-              ...data,
+          before: async (data) => {
+            // Cada cuenta necesita un correo real: Google ya lo verifica; en el registro con contraseña se revisa
+            // que el dominio no tenga errores de dedo (gmail.comj) y que reciba correo.
+            if (!data.emailVerified) {
+              const check = checkEmailAddress(data.email);
+              if (!check.ok) throw new APIError('BAD_REQUEST', { message: check.message, code: 'INVALID_EMAIL_DOMAIN' });
+              if (!(await domainReceivesMail(check.email))) {
+                throw new APIError('BAD_REQUEST', {
+                  message: 'Ese dominio no recibe correos. Revisa que el correo esté bien escrito.',
+                  code: 'INVALID_EMAIL_DOMAIN',
+                });
+              }
+            }
+            return {
+              data: {
+                ...data,
               role: isAdminEmail(data.email) ? 'admin' : 'user',
               units: 'metric',
               locale: 'es-MX',
               // El registro exige aceptar el aviso de privacidad antes de enviar el formulario.
               privacyAcceptedAt: new Date(),
-            },
-          }),
+              },
+            };
+          },
         },
       },
     },

@@ -1,8 +1,9 @@
 'use client';
 
+import { checkEmailAddress } from '@stenia/core';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition, type FormEvent } from 'react';
+import { useRef, useState, useTransition, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,8 @@ import { GoogleButton } from './google-button';
 export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -25,12 +28,18 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
     const confirm = String(form.get('confirm') ?? '');
     const privacy = form.get('privacy') === 'on';
     setError(null);
+    setSuggestion(null);
     if (name.length < 2) return setError('Escribe tu nombre.');
+    const emailCheck = checkEmailAddress(email);
+    if (!emailCheck.ok) {
+      setSuggestion(emailCheck.suggestion);
+      return setError(emailCheck.message);
+    }
     if (password.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.');
     if (password !== confirm) return setError('Las contraseñas no coinciden.');
     if (!privacy) return setError('Para crear la cuenta debes aceptar el aviso de privacidad.');
     startTransition(async () => {
-      const { error } = await signUp.email({ name, email, password });
+      const { error } = await signUp.email({ name, email: emailCheck.email, password });
       if (error) {
         setError(describeAuthError(error));
         return;
@@ -50,7 +59,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
         </Field>
         <Field>
           <Label htmlFor="email">Correo</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" required />
+          <Input ref={emailRef} id="email" name="email" type="email" autoComplete="email" inputMode="email" required />
         </Field>
         <Field>
           <Label htmlFor="password">Contraseña</Label>
@@ -72,6 +81,21 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
           </span>
         </label>
         <FieldError>{error}</FieldError>
+        {suggestion ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onClick={() => {
+              if (emailRef.current) emailRef.current.value = suggestion;
+              setSuggestion(null);
+              setError(null);
+            }}
+          >
+            Usar {suggestion}
+          </Button>
+        ) : null}
         <Button type="submit" block disabled={pending}>
           {pending ? 'Creando cuenta…' : 'Crear cuenta'}
         </Button>

@@ -8,3 +8,4 @@ export * from './training/index';
 export * from './progress/index';
 export * from './nutrition/index';
 export * from './vision/index';
+export * from './email';
