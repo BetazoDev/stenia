@@ -70,21 +70,45 @@ async function setup() {
     console.error(`No se pudo registrar la vinculación en ${url}: ${detail}.`);
     process.exit(1);
   }
-  setEnvValues({ AI_BRIDGE_URL: url, AI_BRIDGE_TOKEN: token });
+  // El token nuevo se guarda solo cuando la app confirma el código: si se cancela, el vínculo anterior sigue intacto.
   console.info(`\nAbre ${url}/settings/developer (con tu cuenta admin) y escribe este código:\n\n    ${code}\n\nEsperando confirmación (10 minutos)…`);
   const deadline = Date.now() + 10 * 60 * 1000;
   while (Date.now() < deadline) {
     const r = await post(url, token, '/api/ai-bridge/claim', { worker: WORKER, waitMs: 0 }, 10_000).catch(() => null);
-    if (r && r.status !== 401) {
-      // 204 (sin trabajo) o una petición: ya está vinculada. Una petición reclamada aquí se atiende al arrancar.
-      if (r.status === 200) await handle(url, token, BridgeJob.parse(await r.json()));
-      console.info('\nMac vinculada. Deja corriendo «pnpm ai:bridge» o instálalo con «pnpm ai:bridge install».');
+    // 204 (sin trabajo) o 200 (una petición): la app ya acepta este token. Cualquier otro estado se reintenta.
+    if (r && (r.status === 204 || r.status === 200)) {
+      setEnvValues({ AI_BRIDGE_URL: url, AI_BRIDGE_TOKEN: token });
+      if (r.status === 200) await handleRaw(url, token, await r.json().catch(() => null));
+      const restarted = restartService();
+      console.info(
+        restarted
+          ? '\nMac vinculada. El servicio se reinició con el vínculo nuevo.'
+          : '\nMac vinculada. Deja corriendo «pnpm ai:bridge» o instálalo con «pnpm ai:bridge install».',
+      );
       return;
     }
     await sleep(3000);
   }
   console.error('El código venció. Corre de nuevo pnpm ai:bridge setup.');
   process.exit(1);
+}
+
+/** Atiende lo que devolvió /claim; si no se puede leer, avisa al servidor en vez de dejarlo esperando. */
+async function handleRaw(url: string, token: string, raw: unknown) {
+  const job = BridgeJob.safeParse(raw);
+  if (job.success) return handle(url, token, job.data);
+  const meta = (raw ?? {}) as { id?: unknown; modelId?: unknown };
+  if (typeof meta.id !== 'string' || !meta.id) return;
+  const result: BridgeResult = {
+    id: meta.id,
+    ok: false,
+    message: `La Mac no pudo leer la petición: ${job.error.issues.slice(0, 2).map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`.slice(0, 2000),
+    modelId: typeof meta.modelId === 'string' ? meta.modelId : '',
+    latencyMs: 0,
+    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+  };
+  await post(url, token, '/api/ai-bridge/result', result).catch(() => null);
+  log(`Petición ${meta.id} ilegible: ${result.message}`);
 }
 
 async function handle(url: string, token: string, job: BridgeJob) {
@@ -138,13 +162,25 @@ async function run() {
       await sleep(5000);
       continue;
     }
-    const job = BridgeJob.safeParse(await res.json().catch(() => null));
-    if (job.success) await handle(url, token, job.data);
+    await handleRaw(url, token, await res.json().catch(() => null));
   }
 }
 
+/** Si el servicio de macOS está instalado, lo reinicia para que lea el vínculo nuevo de .env.local. */
+function restartService(): boolean {
+  if (!existsSync(PLIST)) return false;
+  const uid = String(process.getuid?.() ?? '');
+  return spawnSync('launchctl', ['kickstart', '-k', `gui/${uid}/${LABEL}`], { stdio: 'ignore' }).status === 0;
+}
+
 function install() {
-  const bun = process.execPath;
+  // pnpm resuelve la versión vigente de Bun en cada arranque: una actualización de dependencias no rompe el servicio.
+  const pnpm = spawnSync('which', ['pnpm'], { encoding: 'utf8' }).stdout.trim();
+  if (!pnpm) {
+    console.error('No encontré pnpm en el PATH; corre este comando desde la terminal donde usas pnpm.');
+    process.exit(1);
+  }
+  const xml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   mkdirSync(path.dirname(PLIST), { recursive: true });
   mkdirSync(path.dirname(LOG), { recursive: true });
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
@@ -153,9 +189,9 @@ function install() {
 <dict>
   <key>Label</key><string>${LABEL}</string>
   <key>ProgramArguments</key>
-  <array><string>${bun}</string><string>run</string><string>${path.join(ROOT, 'scripts/ai-bridge.ts')}</string></array>
-  <key>WorkingDirectory</key><string>${ROOT}</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <array><string>${xml(pnpm)}</string><string>exec</string><string>bun</string><string>run</string><string>scripts/ai-bridge.ts</string></array>
+  <key>WorkingDirectory</key><string>${xml(ROOT)}</string>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(process.env.PATH ?? '/usr/bin:/bin')}</string></dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>30</integer>

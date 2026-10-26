@@ -28,6 +28,14 @@ export function workersAiAccountId(baseUrl: string | null | undefined): string {
   return baseUrl?.match(/\/accounts\/([^/]+)\/ai\/v1/)?.[1] ?? '';
 }
 
+/** Lo que alguien escribe o pega como ID de cuenta: acepta la URL completa y deja solo letras y números. */
+export function normalizeWorkersAiAccountId(input: string): string {
+  const fromUrl = input.match(/\/accounts\/([^/\s]+)/)?.[1];
+  return (fromUrl ?? input).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+export const WORKERS_AI_ACCOUNT_ID = /^[a-f0-9]{32}$/;
+
 /** Perfiles de IA: el de la cuenta dueña (admin) y el de las demás cuentas. */
 export const AiScope = z.enum(['owner', 'users']);
 export type AiScope = z.infer<typeof AiScope>;
@@ -99,8 +107,11 @@ export const AiSettingsInput = z
     logPrompts: z.boolean(),
   })
   .superRefine((value, ctx) => {
-    if (value.provider === 'workers_ai' && !workersAiAccountId(value.baseUrl)) {
-      ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'Escribe el ID de cuenta de Cloudflare' });
+    if (value.provider === 'workers_ai') {
+      const accountId = workersAiAccountId(value.baseUrl);
+      if (!WORKERS_AI_ACCOUNT_ID.test(accountId) || value.baseUrl !== workersAiBaseUrl(accountId)) {
+        ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'El ID de cuenta de Cloudflare debe tener 32 caracteres hexadecimales' });
+      }
     }
     if (value.provider === 'openai_compatible' && !value.baseUrl) {
       ctx.addIssue({
@@ -141,7 +152,6 @@ export const DEFAULT_MODELS: Record<AiProvider, AiModels> = {
     fallback: 'openai/gpt-6-luna',
   },
   openai_compatible: { planning: '', fast: '', vision: '', fallback: '' },
-  // Sonnet para planificar porque Opus no está en todos los planes; con Max puede cambiarse a claude-opus-5-5.
   // Evaluado 2026-10-22: Gemma 4 sin «thinking» pasó rutina, plan, revisión y traducción en dos corridas; gpt-oss
   // falló rutina y plan, pero sirve de respaldo en las tareas cortas.
   workers_ai: {
@@ -150,6 +160,7 @@ export const DEFAULT_MODELS: Record<AiProvider, AiModels> = {
     vision: '@cf/google/gemma-4-26b-a4b-it',
     fallback: '@cf/openai/gpt-oss-120b',
   },
+  // Sonnet para planificar porque Opus no está en todos los planes; con Max puede cambiarse a claude-opus-5-5.
   claude_code: {
     planning: 'claude-sonnet-5-5',
     fast: 'claude-haiku-5-5',

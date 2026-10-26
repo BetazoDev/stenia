@@ -83,6 +83,12 @@ export async function saveAiSettingsAction(raw: unknown): Promise<ActionResult> 
     }
   }
 
+  // Una key guardada pertenece al proveedor con el que se guardó: si el proveedor cambia y no llega key nueva, se
+  // borra para no mandarla a otro servicio (p. ej. el token de Cloudflare a OpenRouter).
+  const previous = await loadAiSettings(scope);
+  const keyBelongsElsewhere = !keyFields && previous !== null && previous.provider !== settings.provider;
+  const clearedKey = keyBelongsElsewhere ? { apiKeyEncrypted: null, apiKeyLast4: null } : {};
+
   const values = {
     provider: settings.provider,
     baseUrl: settings.baseUrl ? settings.baseUrl : null,
@@ -93,6 +99,7 @@ export async function saveAiSettingsAction(raw: unknown): Promise<ActionResult> 
     logPrompts: settings.logPrompts,
     updatedBy: session.user.id,
     updatedAt: new Date(),
+    ...clearedKey,
     ...(keyFields ?? {}),
   };
 

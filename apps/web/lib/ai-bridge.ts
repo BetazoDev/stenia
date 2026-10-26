@@ -13,10 +13,11 @@ import {
   type StructuredFailure,
   type StructuredSuccess,
 } from '@stenia/ai';
-import { aiBridgeRequest, appConfig } from '@stenia/db';
+import { aiBridgeRequest } from '@stenia/db';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { deleteConfig, getConfig, setConfig } from './app-config';
 import { getDb } from './db';
 
 /**
@@ -34,21 +35,8 @@ export function usesBridge(provider: string): boolean {
   return provider === 'claude_code' && process.env.STENIA_DEPLOYMENT === 'server';
 }
 
-async function getConfig(key: string): Promise<string | null> {
-  const [row] = await getDb().select({ value: appConfig.value }).from(appConfig).where(eq(appConfig.key, key)).limit(1);
-  return row?.value ?? null;
-}
-
-async function setConfig(key: string, value: string) {
-  await getDb()
-    .insert(appConfig)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: appConfig.key, set: { value, updatedAt: new Date() } });
-}
-
-async function deleteConfig(...keys: string[]) {
-  await getDb().delete(appConfig).where(inArray(appConfig.key, keys));
-}
+/** Una petición más vieja que esto ya no tiene quien la espere (el servidor espera como máximo 175 s). */
+const STALE_REQUEST_MS = 180_000;
 
 // ── Vinculación ───────────────────────────────────────────────────────────────────────────
 
@@ -123,12 +111,17 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Espera hasta 25 s (o `waitMs`) por una petición pendiente y la marca como en curso (una a la vez). */
 export async function claimNext(worker: string, waitMs = BRIDGE_LONG_POLL_MS): Promise<BridgeJob | null> {
   const deadline = Date.now() + Math.min(Math.max(0, waitMs), BRIDGE_LONG_POLL_MS);
+  // Un latido por llamada basta: la Mac vuelve a pedir trabajo cada ≤ 25 s y el umbral de conexión es de 70 s.
+  await setConfig(KEY_HEARTBEAT, JSON.stringify({ at: Date.now(), worker: worker.slice(0, 80) }));
+  const staleBefore = new Date(Date.now() - STALE_REQUEST_MS);
   for (;;) {
-    await setConfig(KEY_HEARTBEAT, JSON.stringify({ at: Date.now(), worker: worker.slice(0, 80) }));
+    // Las pendientes que nadie espera (p. ej. el servidor se reinició a media espera) no se atienden.
     const result = await getDb().execute(sql`
       update ${aiBridgeRequest} set status = 'running', claimed_at = now()
       where id = (
-        select id from ${aiBridgeRequest} where status = 'pending' order by created_at limit 1 for update skip locked
+        select id from ${aiBridgeRequest}
+        where status = 'pending' and created_at > ${staleBefore}
+        order by created_at limit 1 for update skip locked
       )
       returning id, fn, model_id, payload`);
     const row = result.rows[0] as { id: string; fn: string; model_id: string; payload: Omit<BridgeJob, 'id' | 'fn' | 'modelId'> } | undefined;
@@ -192,6 +185,7 @@ export async function bridgeGenerate<T>(req: {
     await sleep(750);
     const [r] = await db.select().from(aiBridgeRequest).where(eq(aiBridgeRequest.id, row.id)).limit(1);
     if (!r) return fail('La petición desapareció de la cola.');
+    if (r.status === 'expired') return fail('La petición se canceló (se desvinculó la Mac).');
     if (r.status === 'done' || r.status === 'error') {
       const usage = { inputTokens: r.inputTokens, outputTokens: r.outputTokens, cachedInputTokens: r.cachedInputTokens };
       const latencyMs = Math.round(performance.now() - started);

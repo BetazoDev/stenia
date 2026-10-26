@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AiSettingsInput, chooseAiProfile, defaultSettingsFor, maskApiKey, workersAiAccountId, workersAiBaseUrl } from './settings';
+import { AiSettingsInput, chooseAiProfile, defaultSettingsFor, maskApiKey, normalizeWorkersAiAccountId, workersAiAccountId, workersAiBaseUrl } from './settings';
 
 describe('AiSettingsInput', () => {
   it('acepta la configuración por defecto de cada proveedor con modelos', () => {
@@ -43,5 +43,15 @@ describe('perfil de IA por cuenta', () => {
     expect(url).toBe('https://api.cloudflare.com/client/v4/accounts/abc123/ai/v1');
     expect(workersAiAccountId(url)).toBe('abc123');
     expect(workersAiAccountId('https://otra.url/v1')).toBe('');
+  });
+  it('acepta el ID de cuenta escrito o pegado como URL, y valida el formato', () => {
+    const id = '0123456789abcdef0123456789abcdef';
+    expect(normalizeWorkersAiAccountId(` ${id.toUpperCase()} `)).toBe(id);
+    expect(normalizeWorkersAiAccountId(`https://api.cloudflare.com/client/v4/accounts/${id}/ai/v1`)).toBe(id);
+    expect(normalizeWorkersAiAccountId('abc/')).toBe('abc');
+    const valid = { ...defaultSettingsFor('workers_ai'), baseUrl: workersAiBaseUrl(id) };
+    expect(AiSettingsInput.safeParse(valid).success).toBe(true);
+    expect(AiSettingsInput.safeParse({ ...valid, baseUrl: workersAiBaseUrl('abc') }).success).toBe(false);
+    expect(AiSettingsInput.safeParse({ ...valid, baseUrl: workersAiBaseUrl(workersAiBaseUrl(id)) }).success).toBe(false);
   });
 });

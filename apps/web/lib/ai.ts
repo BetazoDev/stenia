@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { AI_FUNCTIONS, generateStructured, type AiFunction, type CallParams } from '@stenia/ai';
+import { AI_FUNCTIONS, OWNER_ONLY_PROVIDERS, generateStructured, type AiFunction, type CallParams } from '@stenia/ai';
 import { aiPromptLog } from '@stenia/db';
 import type { ModelMessage } from '@stenia/ai';
 import type { z } from 'zod';
@@ -91,18 +91,19 @@ export async function runAi<T>(args: RunAiArgs<T>): Promise<AiResult<T>> {
   if (args.withImages && !config.owner?.sendPhotos) {
     return { ok: false, reason: 'photos_disabled', message: UNAVAILABLE_MESSAGES.photos_disabled };
   }
-  const key = resolveApiKey(row, config.scope);
-  if (!key) return { ok: false, reason: 'not_configured', message: UNAVAILABLE_MESSAGES.not_configured };
+  // Doble candado: la suscripción de Claude solo atiende al perfil dueño, vaya o no por el puente.
+  if (OWNER_ONLY_PROVIDERS.includes(provider) && config.scope !== 'owner') {
+    return { ok: false, reason: 'subscription_owner_only', message: UNAVAILABLE_MESSAGES.subscription_owner_only };
+  }
+  const bridged = usesBridge(provider);
+  // Por el puente no hace falta key: la Mac usa su propio login de Claude.
+  const key = bridged ? null : resolveApiKey(row, config.scope);
+  if (!bridged && !key) return { ok: false, reason: 'not_configured', message: UNAVAILABLE_MESSAGES.not_configured };
   const task = AI_FUNCTIONS[args.fn].task;
   const params: CallParams = row?.params[task] ?? { temperature: 0.2, maxTokens: 4000 };
   const primary = modelForTask(row, provider, task);
   const fallback = row?.models.fallback?.trim() || null;
   const models = [primary, ...(fallback && fallback !== primary ? [fallback] : [])];
-  // Doble candado: el puente (suscripción de Claude) solo atiende al perfil dueño.
-  const bridged = usesBridge(provider);
-  if (bridged && config.scope !== 'owner') {
-    return { ok: false, reason: 'subscription_owner_only', message: UNAVAILABLE_MESSAGES.subscription_owner_only };
-  }
 
   let lastMessage = 'Error desconocido.';
   for (const modelId of models) {
@@ -110,7 +111,7 @@ export async function runAi<T>(args: RunAiArgs<T>): Promise<AiResult<T>> {
     const result = bridged
       ? await bridgeGenerate({ userId: args.userId, fn: args.fn, modelId, params: callParams, schema: args.schema, system: args.system, prompt: args.prompt, messages: args.messages })
       : await generateStructured({
-          model: { provider, apiKey: key.apiKey, modelId, baseUrl: row?.baseUrl ?? undefined },
+          model: { provider, apiKey: key?.apiKey ?? '', modelId, baseUrl: row?.baseUrl ?? undefined },
           params: callParams,
           schema: args.schema,
           system: args.system,

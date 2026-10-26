@@ -12,7 +12,7 @@
  *
  *   Suscripción de Claude: EVAL_PROVIDER=claude_code bun run scripts/eval-ai.ts --models=claude-sonnet-5-5
  *
- * Opciones: --tasks=routine,meal,checkin,translate  --json-schema (envía response_format json_schema)
+ * Opciones: --tasks=routine,meal,checkin,translate  --json-schema | --json-mode (por defecto, lo que use la app)
  *           --header=nombre:valor (repetible)  --max-tokens=6000
  */
 import { parseArgs } from 'node:util';
@@ -56,7 +56,9 @@ const { values } = parseArgs({
   options: {
     models: { type: 'string' },
     tasks: { type: 'string', default: 'routine,meal,checkin,translate' },
-    'json-schema': { type: 'boolean', default: false },
+    // Sin bandera se usa lo mismo que la app para ese proveedor (Workers AI: json_schema).
+    'json-schema': { type: 'boolean' },
+    'json-mode': { type: 'boolean' },
     header: { type: 'string', multiple: true, default: [] },
     'max-tokens': { type: 'string', default: '6000' },
   },
@@ -103,7 +105,7 @@ try {
       apiKey,
       modelId,
       baseUrl,
-      structuredOutputs: values['json-schema'],
+      structuredOutputs: values['json-mode'] ? false : values['json-schema'] ? true : undefined,
       ...(Object.keys(headers).length ? { headers } : {}),
     };
 

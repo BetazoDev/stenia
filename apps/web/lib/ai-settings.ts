@@ -11,11 +11,12 @@ import {
   type AiSettingsInput,
   type AiTask,
 } from '@stenia/ai';
-import { aiSettings, aiUsage, appConfig, user } from '@stenia/db';
+import { aiSettings, aiUsage, user } from '@stenia/db';
 import { eq, gte, sql } from 'drizzle-orm';
 
+import { getConfig, setConfig } from './app-config';
 import { getDb } from './db';
-import { env } from './env';
+import { adminEmails, env } from './env';
 
 export type StoredAiSettings = typeof aiSettings.$inferSelect;
 
@@ -30,23 +31,25 @@ export async function loadAiSettings(scope: AiScope = 'owner'): Promise<StoredAi
 const USERS_MODE_KEY = 'ai_users_mode';
 
 export async function getUsersAiMode(): Promise<UsersAiMode> {
-  const [row] = await getDb().select({ value: appConfig.value }).from(appConfig).where(eq(appConfig.key, USERS_MODE_KEY)).limit(1);
-  const parsed = UsersAiMode.safeParse(row?.value);
+  const parsed = UsersAiMode.safeParse(await getConfig(USERS_MODE_KEY));
   return parsed.success ? parsed.data : 'same';
 }
 
 export async function setUsersAiMode(mode: UsersAiMode) {
-  await getDb()
-    .insert(appConfig)
-    .values({ key: USERS_MODE_KEY, value: mode })
-    .onConflictDoUpdate({ target: appConfig.key, set: { value: mode, updatedAt: new Date() } });
+  await setConfig(USERS_MODE_KEY, mode);
 }
 
-/** La cuenta dueña es el rol admin; `null` son tareas de sistema que lanza el admin (importaciones, traducciones). */
+/**
+ * La cuenta dueña es una sola persona: el primer correo de ADMIN_EMAILS (otros admins usan el perfil de las demás
+ * cuentas, así la suscripción de Claude nunca atiende a alguien más). Sin ADMIN_EMAILS se usa el rol admin.
+ * `null` son tareas de sistema.
+ */
 export async function isOwnerAccount(userId: string | null): Promise<boolean> {
   if (!userId) return true;
-  const [row] = await getDb().select({ role: user.role }).from(user).where(eq(user.id, userId)).limit(1);
-  return row?.role === 'admin';
+  const [row] = await getDb().select({ role: user.role, email: user.email }).from(user).where(eq(user.id, userId)).limit(1);
+  if (!row) return false;
+  const owner = adminEmails()[0];
+  return owner ? row.email.trim().toLowerCase() === owner : row.role === 'admin';
 }
 
 export type AiConfig = {

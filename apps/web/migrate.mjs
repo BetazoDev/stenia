@@ -20,10 +20,18 @@ const db = drizzle({ client: pool });
 try {
   await migrate(db, { migrationsFolder });
   console.info(`Migraciones aplicadas desde ${migrationsFolder}`);
-  console.info(`Equipamiento sembrado: ${await seedEquipment(db)} elementos.`);
 } catch (error) {
   console.error('Error al aplicar migraciones:', error instanceof Error ? error.message : error);
   process.exitCode = 1;
-} finally {
-  await pool.end();
 }
+
+// La semilla no detiene el arranque: si falla, la app sigue y el importador del catálogo la reintenta.
+if (process.exitCode !== 1) {
+  try {
+    console.info(`Equipamiento sembrado: ${await seedEquipment(db)} elementos.`);
+  } catch (error) {
+    console.error('No se pudo sembrar el equipamiento:', error instanceof Error ? error.message : error);
+  }
+}
+
+await pool.end();

@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -33,8 +33,9 @@ export type ClaudeCodeRequest<T> = {
 };
 
 let sandboxDir: string | null = null;
+/** Directorio vacío para cada llamada; se recrea si macOS limpió la carpeta temporal en un proceso de larga vida. */
 function sandbox(): string {
-  sandboxDir ??= mkdtempSync(path.join(tmpdir(), 'stenia-claude-'));
+  if (!sandboxDir || !existsSync(sandboxDir)) sandboxDir = mkdtempSync(path.join(tmpdir(), 'stenia-claude-'));
   return sandboxDir;
 }
 

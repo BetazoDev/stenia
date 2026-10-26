@@ -8,6 +8,7 @@ import {
   AiTask,
   DEFAULT_MODELS,
   OWNER_ONLY_PROVIDERS,
+  normalizeWorkersAiAccountId,
   workersAiAccountId,
   workersAiBaseUrl,
   type AiScope,
@@ -54,6 +55,10 @@ export function DeveloperSettingsForm({
   const [settings, setSettings] = useState<AiSettingsInput>(initial);
   const [apiKey, setApiKey] = useState('');
   const [replacingKey, setReplacingKey] = useState(!keyLast4);
+  // La key guardada es del proveedor guardado: al cambiar de proveedor hay que escribir la nueva (el servidor
+  // borra la anterior al guardar).
+  const storedKeyApplies = Boolean(keyLast4) && settings.provider === initial.provider;
+  const askForKey = replacingKey || !storedKeyApplies;
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [testTask, setTestTask] = useState<AiTask>('fast');
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
@@ -87,7 +92,7 @@ export function DeveloperSettingsForm({
       const result = await saveAiSettingsAction({
         scope,
         settings: toSave,
-        apiKey: replacingKey && apiKey && settings.provider !== 'claude_code' ? apiKey : undefined,
+        apiKey: askForKey && apiKey && settings.provider !== 'claude_code' ? apiKey : undefined,
       });
       setMessage({ tone: result.ok ? 'ok' : 'error', text: result.message ?? 'Guardado.' });
       if (result.ok && apiKey) {
@@ -172,9 +177,10 @@ export function DeveloperSettingsForm({
               spellCheck={false}
               placeholder="32 caracteres hexadecimales"
               value={workersAiAccountId(settings.baseUrl)}
-              onChange={(e) =>
-                update('baseUrl', e.target.value.trim() ? workersAiBaseUrl(e.target.value) : '')
-              }
+              onChange={(e) => {
+                const accountId = normalizeWorkersAiAccountId(e.target.value);
+                update('baseUrl', accountId ? workersAiBaseUrl(accountId) : '');
+              }}
             />
             <FieldHint>
               Panel de Cloudflare › Workers AI › «Use REST API». Gratis hasta 10,000 neuronas al
@@ -222,7 +228,7 @@ export function DeveloperSettingsForm({
               AI_API_KEY está definida en el servidor y sobrescribe cualquier key guardada aquí.
             </p>
           ) : null}
-          {!replacingKey && keyLast4 ? (
+          {!askForKey ? (
             <div className="flex flex-wrap items-center gap-3">
               <span className="tnum rounded-input border border-border bg-surface px-3.5 py-2.5">
                 ••••{keyLast4}
@@ -254,9 +260,13 @@ export function DeveloperSettingsForm({
                   Falta ENCRYPTION_KEY en el servidor: no se podrá guardar la key.
                 </FieldError>
               ) : (
-                <FieldHint>Tras guardar solo se muestran los últimos 4 caracteres.</FieldHint>
+                <FieldHint>
+                  {keyLast4 && !storedKeyApplies
+                    ? `La key guardada (••••${keyLast4}) es de otro proveedor y se borrará al guardar.`
+                    : 'Tras guardar solo se muestran los últimos 4 caracteres.'}
+                </FieldHint>
               )}
-              {keyLast4 ? (
+              {keyLast4 && storedKeyApplies ? (
                 <Button
                   variant="ghost"
                   size="sm"
