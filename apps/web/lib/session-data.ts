@@ -8,12 +8,14 @@ import {
   epley1rm,
   formatTarget,
   isDeloadWeek,
+  kgToUnit,
   setLoad,
   type CatalogExercise,
   type ExerciseSession,
   type LoadType,
   type LoggedSet,
   type TodayTarget,
+  type WeightUnit,
 } from '@stenia/core';
 import {
   checkin,
@@ -36,7 +38,13 @@ import { getActiveGymProfile, incrementsFor, type GymProfileWithEquipment } from
 import { buildContext } from './routine';
 import { completeAnswers, getProfile, latestScreening, readAnswers } from './profile';
 
-export type MediaSet = { start: string | null; end: string | null; main: string | null; source: string | null; attributionUrl: string | null };
+export type MediaSet = {
+  start: string | null;
+  end: string | null;
+  main: string | null;
+  source: string | null;
+  attributionUrl: string | null;
+};
 
 export type HistorySet = {
   setNumber: number;
@@ -73,13 +81,23 @@ export type ExerciseContext = {
   bestText: string | null;
   bestE1rm: number | null;
   bests: ExerciseBests;
-  ladder: { previous: { id: string; name: string } | null; next: { id: string; name: string } | null };
+  ladder: {
+    previous: { id: string; name: string } | null;
+    next: { id: string; name: string } | null;
+  };
 };
 
 export type BootstrapExercise = ExerciseContext & {
   routineExerciseId: string;
   sortOrder: number;
-  prescription: { sets: number; repMin: number | null; repMax: number | null; targetSeconds: number | null; rirTarget: number; restSeconds: number };
+  prescription: {
+    sets: number;
+    repMin: number | null;
+    repMax: number | null;
+    targetSeconds: number | null;
+    rirTarget: number;
+    restSeconds: number;
+  };
   notes: string | null;
   alternatives: { exerciseId: string; name: string; equipment: string[]; loadType: LoadType }[];
 };
@@ -98,13 +116,20 @@ export type SessionBootstrap = {
 
 const fmt = (n: number) => new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 }).format(n);
 
-export function setText(s: HistorySet, loadType: LoadType, variantName?: string): string {
+export function setText(
+  s: HistorySet,
+  loadType: LoadType,
+  variantName?: string,
+  unit: WeightUnit = 'kg',
+): string {
   const rir = s.rir !== null ? ` (RIR ${s.rir})` : '';
-  if (loadType === 'isometric') return `${variantName ? `${variantName} × ` : ''}${s.seconds ?? 0} s${rir}`;
-  if (loadType === 'assisted') return `asist. ${fmt(s.assistanceKg ?? 0)} kg × ${s.reps ?? 0}${rir}`;
-  if (loadType === 'weighted_bw') return `+${fmt(s.addedWeightKg ?? 0)} kg × ${s.reps ?? 0}${rir}`;
+  const w = (kg: number | null) => `${fmt(kgToUnit(kg ?? 0, unit))} ${unit}`;
+  if (loadType === 'isometric')
+    return `${variantName ? `${variantName} × ` : ''}${s.seconds ?? 0} s${rir}`;
+  if (loadType === 'assisted') return `asist. ${w(s.assistanceKg)} × ${s.reps ?? 0}${rir}`;
+  if (loadType === 'weighted_bw') return `+${w(s.addedWeightKg)} × ${s.reps ?? 0}${rir}`;
   if (loadType === 'bodyweight') return `${s.reps ?? 0} reps${rir}`;
-  return `${fmt(s.weightKg ?? 0)} kg × ${s.reps ?? 0}${rir}`;
+  return `${w(s.weightKg)} × ${s.reps ?? 0}${rir}`;
 }
 
 function toLogged(s: HistorySet & { target?: unknown }): LoggedSet {
@@ -122,7 +147,16 @@ function toLogged(s: HistorySet & { target?: unknown }): LoggedSet {
 
 /** Historial completo (series terminadas) de varios ejercicios del usuario, más reciente primero. */
 export async function exerciseHistory(userId: string, exerciseIds: string[], limitSessions = 12) {
-  if (exerciseIds.length === 0) return new Map<string, { sessionId: string; dayId: string | null; date: Date; sets: (HistorySet & { target: unknown })[] }[]>();
+  if (exerciseIds.length === 0)
+    return new Map<
+      string,
+      {
+        sessionId: string;
+        dayId: string | null;
+        date: Date;
+        sets: (HistorySet & { target: unknown })[];
+      }[]
+    >();
   const db = getDb();
   const rows = await db
     .select({
@@ -152,7 +186,15 @@ export async function exerciseHistory(userId: string, exerciseIds: string[], lim
       ),
     )
     .orderBy(desc(workoutSession.startedAt), asc(setLog.setNumber));
-  const out = new Map<string, { sessionId: string; dayId: string | null; date: Date; sets: (HistorySet & { target: unknown })[] }[]>();
+  const out = new Map<
+    string,
+    {
+      sessionId: string;
+      dayId: string | null;
+      date: Date;
+      sets: (HistorySet & { target: unknown })[];
+    }[]
+  >();
   for (const r of rows) {
     const list = out.get(r.exerciseId) ?? [];
     let entry = list.find((e) => e.sessionId === r.sessionId);
@@ -170,14 +212,18 @@ export async function exerciseHistory(userId: string, exerciseIds: string[], lim
 function computeBests(sessions: { sets: HistorySet[] }[]): ExerciseBests {
   const all = sessions.flatMap((s) => s.sets);
   const loads = all.map((s) => setLoad(s)).filter((v): v is number => v !== null);
-  const e1 = all.map((s) => epley1rm(setLoad(s) ?? 0, s.reps ?? 0)).filter((v): v is number => v !== null);
+  const e1 = all
+    .map((s) => epley1rm(setLoad(s) ?? 0, s.reps ?? 0))
+    .filter((v): v is number => v !== null);
   const repsAtLoad: Record<string, number> = {};
   for (const s of all) {
     const load = setLoad(s);
     if (load === null || s.reps === null) continue;
     repsAtLoad[String(load)] = Math.max(repsAtLoad[String(load)] ?? 0, s.reps);
   }
-  const volumes = sessions.map((s) => s.sets.reduce((acc, x) => acc + (setLoad(x) ?? 0) * (x.reps ?? 0), 0)).filter((v) => v > 0);
+  const volumes = sessions
+    .map((s) => s.sets.reduce((acc, x) => acc + (setLoad(x) ?? 0) * (x.reps ?? 0), 0))
+    .filter((v) => v > 0);
   return {
     maxWeight: loads.length ? Math.max(...loads) : null,
     maxE1rm: e1.length ? Math.max(...e1) : null,
@@ -192,12 +238,24 @@ async function mediaFor(exerciseIds: string[]): Promise<Map<string, MediaSet>> {
   const out = new Map<string, MediaSet>();
   if (exerciseIds.length === 0) return out;
   const rows = await getDb()
-    .select({ exerciseId: exerciseMedia.exerciseId, role: exerciseMedia.role, url: exerciseMedia.url, source: exerciseMedia.source, attributionUrl: exerciseMedia.attributionUrl })
+    .select({
+      exerciseId: exerciseMedia.exerciseId,
+      role: exerciseMedia.role,
+      url: exerciseMedia.url,
+      source: exerciseMedia.source,
+      attributionUrl: exerciseMedia.attributionUrl,
+    })
     .from(exerciseMedia)
     .where(inArray(exerciseMedia.exerciseId, exerciseIds))
     .orderBy(asc(exerciseMedia.sortOrder));
   for (const r of rows) {
-    const m = out.get(r.exerciseId) ?? { start: null, end: null, main: null, source: r.source, attributionUrl: r.attributionUrl };
+    const m = out.get(r.exerciseId) ?? {
+      start: null,
+      end: null,
+      main: null,
+      source: r.source,
+      attributionUrl: r.attributionUrl,
+    };
     if (r.role === 'start' && !m.start) m.start = r.url;
     else if (r.role === 'end' && !m.end) m.end = r.url;
     else if (r.role === 'main' && !m.main) m.main = r.url;
@@ -208,20 +266,43 @@ async function mediaFor(exerciseIds: string[]): Promise<Map<string, MediaSet>> {
 
 async function laddersFor(exerciseIds: string[]) {
   const db = getDb();
-  if (exerciseIds.length === 0) return new Map<string, { previous: { id: string; name: string; threshold: ProgressionThreshold } | null; next: { id: string; name: string; threshold: ProgressionThreshold } | null }>();
+  if (exerciseIds.length === 0)
+    return new Map<
+      string,
+      {
+        previous: { id: string; name: string; threshold: ProgressionThreshold } | null;
+        next: { id: string; name: string; threshold: ProgressionThreshold } | null;
+      }
+    >();
   const [nexts, prevs] = await Promise.all([
     db
-      .select({ from: exerciseProgression.fromExerciseId, to: exerciseProgression.toExerciseId, threshold: exerciseProgression.threshold, name: exercise.nameEs })
+      .select({
+        from: exerciseProgression.fromExerciseId,
+        to: exerciseProgression.toExerciseId,
+        threshold: exerciseProgression.threshold,
+        name: exercise.nameEs,
+      })
       .from(exerciseProgression)
       .innerJoin(exercise, eq(exercise.id, exerciseProgression.toExerciseId))
       .where(inArray(exerciseProgression.fromExerciseId, exerciseIds)),
     db
-      .select({ from: exerciseProgression.fromExerciseId, to: exerciseProgression.toExerciseId, threshold: exerciseProgression.threshold, name: exercise.nameEs })
+      .select({
+        from: exerciseProgression.fromExerciseId,
+        to: exerciseProgression.toExerciseId,
+        threshold: exerciseProgression.threshold,
+        name: exercise.nameEs,
+      })
       .from(exerciseProgression)
       .innerJoin(exercise, eq(exercise.id, exerciseProgression.fromExerciseId))
       .where(inArray(exerciseProgression.toExerciseId, exerciseIds)),
   ]);
-  const out = new Map<string, { previous: { id: string; name: string; threshold: ProgressionThreshold } | null; next: { id: string; name: string; threshold: ProgressionThreshold } | null }>();
+  const out = new Map<
+    string,
+    {
+      previous: { id: string; name: string; threshold: ProgressionThreshold } | null;
+      next: { id: string; name: string; threshold: ProgressionThreshold } | null;
+    }
+  >();
   for (const id of exerciseIds) {
     const n = nexts.find((r) => r.from === id);
     const p = prevs.find((r) => r.to === id);
@@ -237,13 +318,18 @@ async function laddersFor(exerciseIds: string[]) {
 function initialWeight(ex: CatalogExercise, marks: Record<string, number> | null): number | null {
   if (!marks) return null;
   const n = ex.nameEn.toLowerCase();
-  if (/bench press|chest press/.test(n) && marks.benchKg) return marks.benchKg * (n.includes('dumbbell') ? 0.4 : 1);
-  if (/squat|leg press/.test(n) && marks.squatKg) return marks.squatKg * (n.includes('leg press') ? 1.5 : n.includes('goblet') ? 0.3 : 1);
+  if (/bench press|chest press/.test(n) && marks.benchKg)
+    return marks.benchKg * (n.includes('dumbbell') ? 0.4 : 1);
+  if (/squat|leg press/.test(n) && marks.squatKg)
+    return marks.squatKg * (n.includes('leg press') ? 1.5 : n.includes('goblet') ? 0.3 : 1);
   if (/row/.test(n) && marks.rowKg) return marks.rowKg * (n.includes('dumbbell') ? 0.45 : 1);
   return null;
 }
 
-async function deloadActive(userId: string, view: { startedOn: string | null; blockWeeks: number; deloadEveryWeeks: number }): Promise<boolean> {
+async function deloadActive(
+  userId: string,
+  view: { startedOn: string | null; blockWeeks: number; deloadEveryWeeks: number },
+): Promise<boolean> {
   const week = blockWeek(view.startedOn, view.blockWeeks);
   if (isDeloadWeek(week, view.deloadEveryWeeks)) return true;
   // Descarga aceptada en una revisión de los últimos 7 días.
@@ -251,8 +337,18 @@ async function deloadActive(userId: string, view: { startedOn: string | null; bl
   const recent = await getDb()
     .select({ decision: checkin.decision })
     .from(checkin)
-    .where(and(eq(checkin.userId, userId), isNotNull(checkin.completedAt), gte(checkin.completedAt, since)));
-  return recent.some((r) => Array.isArray((r.decision as { accepted?: unknown }).accepted) && ((r.decision as { accepted: { kind: string }[] }).accepted).some((a) => a.kind === 'deload'));
+    .where(
+      and(
+        eq(checkin.userId, userId),
+        isNotNull(checkin.completedAt),
+        gte(checkin.completedAt, since),
+      ),
+    );
+  return recent.some(
+    (r) =>
+      Array.isArray((r.decision as { accepted?: unknown }).accepted) &&
+      (r.decision as { accepted: { kind: string }[] }).accepted.some((a) => a.kind === 'deload'),
+  );
 }
 
 type ContextInput = {
@@ -274,7 +370,11 @@ function buildExerciseContext(input: ContextInput): ExerciseContext {
   const sameDay = sessions.find((s) => input.dayId && s.dayId === input.dayId);
   const last = sameDay ?? sessions[0] ?? null;
   const ladder = input.ladders.get(ex.id) ?? { previous: null, next: null };
-  const progressionHistory: ExerciseSession[] = sessions.map((s) => ({ date: s.date.toISOString(), exerciseId: ex.id, sets: s.sets.map(toLogged) }));
+  const progressionHistory: ExerciseSession[] = sessions.map((s) => ({
+    date: s.date.toISOString(),
+    exerciseId: ex.id,
+    sets: s.sets.map(toLogged),
+  }));
   const target = computeTodayTarget({
     prescription: { loadType: ex.loadType, ...prescription },
     history: progressionHistory,
@@ -297,10 +397,18 @@ function buildExerciseContext(input: ContextInput): ExerciseContext {
     pattern: ex.pattern,
     primaryMuscles: ex.primaryMuscles,
     equipment: ex.equipment,
-    media: input.media.get(ex.id) ?? { start: null, end: null, main: null, source: null, attributionUrl: null },
+    media: input.media.get(ex.id) ?? {
+      start: null,
+      end: null,
+      main: null,
+      source: null,
+      attributionUrl: null,
+    },
     target,
     targetText: formatTarget(target, ex.loadType),
-    lastTime: last ? { date: last.date.toISOString(), sameDay: Boolean(sameDay), sets: last.sets } : null,
+    lastTime: last
+      ? { date: last.date.toISOString(), sameDay: Boolean(sameDay), sets: last.sets }
+      : null,
     bestText: best ? setText({ setNumber: 0, ...best }, ex.loadType) : null,
     bestE1rm: bests.maxE1rm,
     bests,
@@ -320,11 +428,20 @@ async function commonInputs(userId: string) {
   ]);
   const q = completeAnswers(readAnswers(profileRow));
   const ctx = q ? buildContext(q, (screeningRow?.intensityCap as never) ?? 'moderate', gym) : null;
-  return { catalog, byId: new Map(catalog.map((e) => [e.id, e])), gym, ctx, marks: (profileRow?.currentLevel as Record<string, number> | null) ?? null };
+  return {
+    catalog,
+    byId: new Map(catalog.map((e) => [e.id, e])),
+    gym,
+    ctx,
+    marks: (profileRow?.currentLevel as Record<string, number> | null) ?? null,
+  };
 }
 
 /** Todo lo que necesita la sesión en vivo para un día de la rutina; el cliente lo guarda en IndexedDB. */
-export async function buildBootstrap(userId: string, dayId: string): Promise<SessionBootstrap | null> {
+export async function buildBootstrap(
+  userId: string,
+  dayId: string,
+): Promise<SessionBootstrap | null> {
   const db = getDb();
   const [day] = await db
     .select({ day: routineDay, routine })
@@ -332,7 +449,11 @@ export async function buildBootstrap(userId: string, dayId: string): Promise<Ses
     .innerJoin(routine, eq(routine.currentVersionId, routineDay.routineVersionId))
     .where(and(eq(routineDay.id, dayId), eq(routine.userId, userId)));
   if (!day) return null;
-  const items = await db.select().from(routineExercise).where(eq(routineExercise.routineDayId, dayId)).orderBy(asc(routineExercise.sortOrder));
+  const items = await db
+    .select()
+    .from(routineExercise)
+    .where(eq(routineExercise.routineDayId, dayId))
+    .orderBy(asc(routineExercise.sortOrder));
   const { byId, catalog, gym, ctx, marks } = await commonInputs(userId);
   const ids = items.map((i) => i.exerciseId);
   const altIds = new Set<string>();
@@ -348,7 +469,11 @@ export async function buildBootstrap(userId: string, dayId: string): Promise<Ses
     exerciseHistory(userId, ids),
     mediaFor(ids),
     laddersFor(ids),
-    deloadActive(userId, { startedOn: day.routine.startedOn, blockWeeks: day.routine.blockWeeks, deloadEveryWeeks: day.routine.deloadEveryWeeks }),
+    deloadActive(userId, {
+      startedOn: day.routine.startedOn,
+      blockWeeks: day.routine.blockWeeks,
+      deloadEveryWeeks: day.routine.deloadEveryWeeks,
+    }),
   ]);
   const exercises: BootstrapExercise[] = [];
   for (const item of items) {
@@ -363,12 +488,28 @@ export async function buildBootstrap(userId: string, dayId: string): Promise<Ses
       restSeconds: item.restSeconds,
     };
     exercises.push({
-      ...buildExerciseContext({ userId, ex, prescription, history, dayId, media, ladders, gym, deload, marks }),
+      ...buildExerciseContext({
+        userId,
+        ex,
+        prescription,
+        history,
+        dayId,
+        media,
+        ladders,
+        gym,
+        deload,
+        marks,
+      }),
       routineExerciseId: item.id,
       sortOrder: item.sortOrder,
       prescription,
       notes: item.notes,
-      alternatives: (alternativesById.get(ex.id) ?? []).map((a) => ({ exerciseId: a.id, name: a.nameEs, equipment: a.equipment, loadType: a.loadType })),
+      alternatives: (alternativesById.get(ex.id) ?? []).map((a) => ({
+        exerciseId: a.id,
+        name: a.nameEs,
+        equipment: a.equipment,
+        loadType: a.loadType,
+      })),
     });
   }
   return {
@@ -394,11 +535,37 @@ export async function buildExerciseContextFor(
   const { byId, gym, marks } = await commonInputs(userId);
   const ex = byId.get(exerciseId);
   if (!ex) return null;
-  const [history, media, ladders] = await Promise.all([exerciseHistory(userId, [ex.id]), mediaFor([ex.id]), laddersFor([ex.id])]);
-  const adjusted = ex.loadType === 'isometric'
-    ? { ...prescription, repMin: null, repMax: null, targetSeconds: prescription.targetSeconds ?? 30 }
-    : { ...prescription, targetSeconds: null, repMin: prescription.repMin ?? 8, repMax: prescription.repMax ?? 12 };
-  return buildExerciseContext({ userId, ex, prescription: adjusted, history, dayId, media, ladders, gym, deload: false, marks });
+  const [history, media, ladders] = await Promise.all([
+    exerciseHistory(userId, [ex.id]),
+    mediaFor([ex.id]),
+    laddersFor([ex.id]),
+  ]);
+  const adjusted =
+    ex.loadType === 'isometric'
+      ? {
+          ...prescription,
+          repMin: null,
+          repMax: null,
+          targetSeconds: prescription.targetSeconds ?? 30,
+        }
+      : {
+          ...prescription,
+          targetSeconds: null,
+          repMin: prescription.repMin ?? 8,
+          repMax: prescription.repMax ?? 12,
+        };
+  return buildExerciseContext({
+    userId,
+    ex,
+    prescription: adjusted,
+    history,
+    dayId,
+    media,
+    ladders,
+    gym,
+    deload: false,
+    marks,
+  });
 }
 
 export async function routineDayIds(userId: string): Promise<string[]> {

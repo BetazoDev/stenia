@@ -9,3 +9,4 @@ export * from './progress/index';
 export * from './nutrition/index';
 export * from './vision/index';
 export * from './email';
+export * from './units';

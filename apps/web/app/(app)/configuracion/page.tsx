@@ -1,4 +1,5 @@
 import { and, count, eq } from 'drizzle-orm';
+import { weightUnitFrom } from '@stenia/core';
 import { account, bodyPhoto } from '@stenia/db';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -7,6 +8,7 @@ import { DeleteAccount } from '@/components/account/delete-account';
 import { DeletePhotos } from '@/components/account/delete-photos';
 import { PushToggle } from '@/components/account/push-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
+import { UnitsToggle } from '@/components/units/units-toggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDb } from '@/lib/db';
@@ -21,7 +23,10 @@ export default async function SettingsPage() {
     .from(account)
     .where(and(eq(account.userId, user.id), eq(account.providerId, 'credential')))
     .limit(1);
-  const [photos] = await getDb().select({ n: count() }).from(bodyPhoto).where(eq(bodyPhoto.userId, user.id));
+  const [photos] = await getDb()
+    .select({ n: count() })
+    .from(bodyPhoto)
+    .where(eq(bodyPhoto.userId, user.id));
 
   return (
     <div className="flex flex-col gap-8">
@@ -40,8 +45,21 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Unidades</CardTitle>
+          <CardDescription>
+            Peso de series, récords y medidas corporales. Se guarda todo en kg; solo cambia cómo lo
+            ves y lo escribes.
+          </CardDescription>
+        </CardHeader>
+        <UnitsToggle initial={weightUnitFrom(user.units)} />
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Notificaciones</CardTitle>
-          <CardDescription>Fin del descanso con la app en segundo plano y recordatorios de revisiones.</CardDescription>
+          <CardDescription>
+            Fin del descanso con la app en segundo plano y recordatorios de revisiones.
+          </CardDescription>
         </CardHeader>
         <PushToggle />
       </Card>
@@ -50,7 +68,9 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Desarrollador</CardTitle>
-            <CardDescription>Proveedor de IA, modelos por tarea, presupuesto y registro de uso.</CardDescription>
+            <CardDescription>
+              Proveedor de IA, modelos por tarea, presupuesto y registro de uso.
+            </CardDescription>
           </CardHeader>
           <Button asChild variant="secondary">
             <Link href="/settings/developer">Abrir configuración de IA</Link>
@@ -86,7 +106,10 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Fotos corporales</CardTitle>
-          <CardDescription>Guardadas en almacenamiento privado. Borrarlas también retira tu consentimiento para fotos.</CardDescription>
+          <CardDescription>
+            Guardadas en almacenamiento privado. Borrarlas también retira tu consentimiento para
+            fotos.
+          </CardDescription>
         </CardHeader>
         <DeletePhotos count={photos?.n ?? 0} />
       </Card>
@@ -94,7 +117,9 @@ export default async function SettingsPage() {
       <Card className="border-down/30">
         <CardHeader>
           <CardTitle>Zona de riesgo</CardTitle>
-          <CardDescription>Borra tu cuenta y todo su contenido de forma permanente.</CardDescription>
+          <CardDescription>
+            Borra tu cuenta y todo su contenido de forma permanente.
+          </CardDescription>
         </CardHeader>
         <DeleteAccount hasPassword={Boolean(credential)} />
       </Card>

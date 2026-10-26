@@ -313,3 +313,22 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
   importar ejercicios. Ahora `apps/web/migrate.mjs` siembra el equipamiento después de las migraciones en cada
   arranque (es idempotente), e `importAllCatalogs` también lo hace antes de importar.
 - El upsert de la semilla actualiza con `excluded.*`; antes asignaba cada columna a sí misma y no corregía nombres.
+
+## 2026-10-25 · Comentarios de las primeras pruebas
+
+- **Unidades kg y lb.** AGENTS.md fija unidades métricas; por petición del usuario se agrega la preferencia de peso
+  (Configuración › Unidades). Todo se sigue guardando en kg; `user.units` = `metric` | `imperial` solo cambia cómo se
+  muestra y se captura. En libras el selector usa pasos redondos (5, 10 lb) y guarda el equivalente en kg. La sesión
+  en vivo lee la unidad del dispositivo (se sincroniza al abrir la app) para funcionar sin conexión. Cm se quedan.
+- **Un entrenamiento por día.** Con una sesión sin terminar (en este u otro dispositivo) no se empieza otro día ni se
+  genera otra rutina; si ya entrenó hoy, el siguiente día queda para mañana. Fuera de los días preferidos se muestra
+  un mensaje de descanso y la opción de entrenar de todos modos.
+- **Reinicios de prueba** (Rutina › Reiniciar): día (descarta las sesiones de hoy), semana (la rotación vuelve al
+  primer día con `routine.rotation_reset_at`) y ciclo (además, semana 1 del bloque). Se conserva el historial.
+- **Equipamiento primero, con fotos.** El cuestionario empieza por el equipo; cada máquina muestra la foto de un
+  ejercicio representativo de los catálogos abiertos (free-exercise-db, calistenia; RepDB solo para mostrar).
+- **Correos reales.** El registro detecta errores de dedo en dominios populares y el servidor exige que el dominio
+  reciba correo (MX o A/AAAA). Google queda como opción de registro con correo verificado.
+- **Cuenta dueña de la IA:** el primer correo de `ADMIN_EMAILS`; otros admins usan el perfil de las demás cuentas.
+- **Generación resistente a cortes.** Rutina y plan de comidas siguen en el servidor aunque Safari corte la petición
+  al bloquear el teléfono («Load failed»); la respuesta manda un latido cada 10 s.

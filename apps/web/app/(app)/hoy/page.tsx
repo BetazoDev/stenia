@@ -1,6 +1,8 @@
 import {
   CHECKIN_TYPE_LABELS_ES,
+  kgToUnit,
   RECORD_LABELS_ES,
+  weightUnitFrom,
   type CheckinType,
   type RecordType,
 } from '@stenia/core';
@@ -239,7 +241,10 @@ export default async function TodayPage() {
                   </span>
                 </span>
                 <span className="font-display text-lg tracking-display tnum">
-                  {r.value.toLocaleString('es-MX')}
+                  {(['longest_isometric', 'max_reps_at_weight', 'new_variant'].includes(r.type)
+                    ? r.value
+                    : kgToUnit(r.value, weightUnitFrom(session.user.units))
+                  ).toLocaleString('es-MX')}
                 </span>
               </li>
             ))}

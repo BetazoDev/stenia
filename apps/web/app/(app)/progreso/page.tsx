@@ -1,4 +1,14 @@
-import { MUSCLE_LABELS_ES, RECORD_LABELS_ES, type MuscleGroup, type RecordType } from '@stenia/core';
+import {
+  formatWeight,
+  kgToUnit,
+  MUSCLE_LABELS_ES,
+  RECORD_LABELS_ES,
+  weightNumber,
+  weightUnitFrom,
+  type MuscleGroup,
+  type RecordType,
+  type WeightUnit,
+} from '@stenia/core';
 import { CalendarCheck, Camera, ChevronRight, Ruler } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -17,23 +27,32 @@ import { formatShortDate } from '@/lib/time';
 
 export const metadata: Metadata = { title: 'Progreso' };
 
-const fmtKg = (v: number) => `${Math.round(v).toLocaleString('es-MX')}`;
+const fmtVolume = (kg: number, unit: WeightUnit) =>
+  `${Math.round(kgToUnit(kg, unit)).toLocaleString('es-MX')}`;
 const fmtDuration = (s: number) => `${Math.round(s / 60)} min`;
 
-function recordValue(type: string, value: number) {
+function recordValue(type: string, value: number, unit: WeightUnit) {
   if (type === 'longest_isometric') return `${value} s`;
-  if (type === 'max_volume') return `${fmtKg(value)} kg`;
+  if (type === 'max_volume') return `${fmtVolume(value, unit)} ${unit}`;
   if (type === 'max_reps_at_weight') return `${value} reps`;
   if (type === 'new_variant') return `nivel ${value}`;
-  return `${value.toLocaleString('es-MX')} kg`;
+  return formatWeight(value, unit);
 }
 
 export default async function ProgressPage() {
   const { user } = await requireSession();
-  const [data, body] = await Promise.all([getProgressOverview(user.id), latestBodyComposition(user.id)]);
-  const muscles = [...new Set([...Object.keys(data.thisWeek), ...Object.keys(data.lastWeek)])] as MuscleGroup[];
+  const unit = weightUnitFrom(user.units);
+  const [data, body] = await Promise.all([
+    getProgressOverview(user.id),
+    latestBodyComposition(user.id),
+  ]);
+  const muscles = [
+    ...new Set([...Object.keys(data.thisWeek), ...Object.keys(data.lastWeek)]),
+  ] as MuscleGroup[];
   const max = Math.max(10, ...Object.values(data.thisWeek));
-  const intensity = Object.fromEntries(Object.entries(data.thisWeek).map(([m, v]) => [m, v / max])) as Partial<Record<MuscleGroup, number>>;
+  const intensity = Object.fromEntries(
+    Object.entries(data.thisWeek).map(([m, v]) => [m, v / max]),
+  ) as Partial<Record<MuscleGroup, number>>;
   const hasData = data.sessions.length > 0;
 
   return (
@@ -74,21 +93,38 @@ export default async function ProgressPage() {
         <>
           <section className="grid grid-cols-2 gap-4" aria-label="Semana contra semana">
             <Card className="flex flex-col gap-2">
-              <Metric label="Sesiones" value={data.sessionsThisWeek} unit={data.planned ? `/ ${data.planned}` : undefined} />
+              <Metric
+                label="Sesiones"
+                value={data.sessionsThisWeek}
+                unit={data.planned ? `/ ${data.planned}` : undefined}
+              />
               <span className="text-sm text-text-3">
-                Semana pasada: {data.sessionsLastWeek} <Delta value={data.sessionsThisWeek - data.sessionsLastWeek} />
+                Semana pasada: {data.sessionsLastWeek}{' '}
+                <Delta value={data.sessionsThisWeek - data.sessionsLastWeek} />
               </span>
             </Card>
             <Card className="flex flex-col gap-2">
-              <Metric label="Volumen" value={fmtKg(data.volume.thisWeek)} unit="kg" />
+              <Metric label="Volumen" value={fmtVolume(data.volume.thisWeek, unit)} unit={unit} />
               <span className="text-sm text-text-3">
-                Semana pasada: {fmtKg(data.volume.lastWeek)} <Delta value={data.volume.lastWeek ? ((data.volume.thisWeek - data.volume.lastWeek) / data.volume.lastWeek) * 100 : null} unit="%" />
+                Semana pasada: {fmtVolume(data.volume.lastWeek, unit)}{' '}
+                <Delta
+                  value={
+                    data.volume.lastWeek
+                      ? ((data.volume.thisWeek - data.volume.lastWeek) / data.volume.lastWeek) * 100
+                      : null
+                  }
+                  unit="%"
+                />
               </span>
             </Card>
             {body.weightKg ? (
               <Card className="flex flex-col gap-2">
-                <Metric label="Peso" value={body.weightKg.toLocaleString('es-MX')} unit="kg" />
-                {body.bodyFatPct ? <span className="text-sm text-text-3">{body.bodyFatPct.toLocaleString('es-MX')}% grasa</span> : null}
+                <Metric label="Peso" value={weightNumber(body.weightKg, unit)} unit={unit} />
+                {body.bodyFatPct ? (
+                  <span className="text-sm text-text-3">
+                    {body.bodyFatPct.toLocaleString('es-MX')}% grasa
+                  </span>
+                ) : null}
               </Card>
             ) : null}
             <Card className="flex flex-col gap-2">
@@ -100,7 +136,9 @@ export default async function ProgressPage() {
           <Card className="flex flex-col gap-5">
             <header className="flex flex-col gap-1">
               <h2 className="text-xl">Mapa muscular de la semana</h2>
-              <p className="text-sm text-text-2">Series efectivas por grupo (las secundarias cuentan como media serie).</p>
+              <p className="text-sm text-text-2">
+                Series efectivas por grupo (las secundarias cuentan como media serie).
+              </p>
             </header>
             <MuscleMap intensity={intensity} />
             {muscles.length > 0 ? (
@@ -111,8 +149,13 @@ export default async function ProgressPage() {
                     <li key={m} className="flex items-center justify-between gap-3 py-2.5">
                       <span>{MUSCLE_LABELS_ES[m]}</span>
                       <span className="flex items-baseline gap-3">
-                        <span className="font-display text-lg tracking-display tnum">{(data.thisWeek[m] ?? 0).toLocaleString('es-MX')}</span>
-                        <Delta value={(data.thisWeek[m] ?? 0) - (data.lastWeek[m] ?? 0)} className="w-14 text-right" />
+                        <span className="font-display text-lg tracking-display tnum">
+                          {(data.thisWeek[m] ?? 0).toLocaleString('es-MX')}
+                        </span>
+                        <Delta
+                          value={(data.thisWeek[m] ?? 0) - (data.lastWeek[m] ?? 0)}
+                          className="w-14 text-right"
+                        />
                       </span>
                     </li>
                   ))}
@@ -138,14 +181,20 @@ export default async function ProgressPage() {
               <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
                 {data.records.map((r) => (
                   <li key={r.id}>
-                    <Link href={`/progreso/ejercicio/${r.slug}`} className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover">
+                    <Link
+                      href={`/progreso/ejercicio/${r.slug}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover"
+                    >
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate">{r.name}</span>
                         <span className="text-sm text-text-3">
-                          {RECORD_LABELS_ES[r.type as RecordType] ?? r.type} · {formatShortDate(r.achievedAt)}
+                          {RECORD_LABELS_ES[r.type as RecordType] ?? r.type} ·{' '}
+                          {formatShortDate(r.achievedAt)}
                         </span>
                       </span>
-                      <span className="font-display text-lg tracking-display tnum">{recordValue(r.type, r.value)}</span>
+                      <span className="font-display text-lg tracking-display tnum">
+                        {recordValue(r.type, r.value, unit)}
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -160,7 +209,10 @@ export default async function ProgressPage() {
             <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
               {data.trained.slice(0, 20).map((t) => (
                 <li key={t.id}>
-                  <Link href={`/progreso/ejercicio/${t.slug}`} className="flex min-h-12 items-center gap-3 px-4 py-3 hover:bg-card-hover">
+                  <Link
+                    href={`/progreso/ejercicio/${t.slug}`}
+                    className="flex min-h-12 items-center gap-3 px-4 py-3 hover:bg-card-hover"
+                  >
                     <span className="min-w-0 flex-1 truncate">{t.name}</span>
                     <span className="text-sm text-text-3 tnum">{t.sessions} ses.</span>
                     <ChevronRight strokeWidth={1.5} className="size-4 text-text-3" />
@@ -181,14 +233,25 @@ export default async function ProgressPage() {
                     <span className="truncate">{s.dayName ?? 'Sesión libre'}</span>
                     <span className="text-sm text-text-3">
                       {formatShortDate(s.startedAt)}
-                      {s.summary ? ` · ${fmtDuration(s.summary.durationSec)} · ${s.summary.completedSets} series` : ''}
+                      {s.summary
+                        ? ` · ${fmtDuration(s.summary.durationSec)} · ${s.summary.completedSets} series`
+                        : ''}
                       {s.summary?.records.length ? ` · ${s.summary.records.length} récord(s)` : ''}
                     </span>
                   </span>
                   {s.summary ? (
                     <span className="flex flex-col items-end">
-                      <span className="font-display text-lg tracking-display tnum">{fmtKg(s.summary.volumeKg)} kg</span>
-                      {s.summary.previous ? <Delta value={s.summary.volumeKg - s.summary.previous.volumeKg} unit=" kg" /> : null}
+                      <span className="font-display text-lg tracking-display tnum">
+                        {fmtVolume(s.summary.volumeKg, unit)} {unit}
+                      </span>
+                      {s.summary.previous ? (
+                        <Delta
+                          value={Math.round(
+                            kgToUnit(s.summary.volumeKg - s.summary.previous.volumeKg, unit),
+                          )}
+                          unit={` ${unit}`}
+                        />
+                      ) : null}
                     </span>
                   ) : null}
                 </li>

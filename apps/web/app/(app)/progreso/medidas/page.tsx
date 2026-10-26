@@ -10,6 +10,8 @@ import { WeightChart } from '@/components/progress/weight-chart';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { Metric } from '@/components/ui/metric';
+import { kgToUnit, weightNumber, weightUnitFrom } from '@stenia/core';
+
 import { latestBodyComposition, listMeasurements, weightSeries } from '@/lib/body';
 import { localDateString } from '@/lib/dates';
 import { getProfile } from '@/lib/profile';
@@ -31,23 +33,41 @@ const n = (v: number | null) => (v === null ? '—' : v.toLocaleString('es-MX'))
 
 export default async function MeasurementsPage() {
   const { user } = await requireSession();
-  const [rows, series, latest, profile] = await Promise.all([listMeasurements(user.id), weightSeries(user.id), latestBodyComposition(user.id), getProfile(user.id)]);
+  const [rows, series, latest, profile] = await Promise.all([
+    listMeasurements(user.id),
+    weightSeries(user.id),
+    latestBodyComposition(user.id),
+    getProfile(user.id),
+  ]);
   const trendNow = series.trend[series.trend.length - 1]?.value ?? null;
+  const unit = weightUnitFrom(user.units);
   // Último valor registrado de cada medida (las filas vienen de la más reciente a la más vieja).
-  const lastOf = (key: 'weightKg' | 'neckCm' | 'waistCm' | 'hipCm' | 'armCm' | 'thighCm') => rows.find((r) => r[key] !== null)?.[key] ?? null;
-  const last = { weightKg: lastOf('weightKg'), neckCm: lastOf('neckCm'), waistCm: lastOf('waistCm'), hipCm: lastOf('hipCm'), armCm: lastOf('armCm'), thighCm: lastOf('thighCm') };
+  const lastOf = (key: 'weightKg' | 'neckCm' | 'waistCm' | 'hipCm' | 'armCm' | 'thighCm') =>
+    rows.find((r) => r[key] !== null)?.[key] ?? null;
+  const last = {
+    weightKg: lastOf('weightKg'),
+    neckCm: lastOf('neckCm'),
+    waistCm: lastOf('waistCm'),
+    hipCm: lastOf('hipCm'),
+    armCm: lastOf('armCm'),
+    thighCm: lastOf('thighCm'),
+  };
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/progreso" className="flex items-center gap-2 text-sm text-text-2 hover:text-text">
+        <Link
+          href="/progreso"
+          className="flex items-center gap-2 text-sm text-text-2 hover:text-text"
+        >
           <ArrowLeft strokeWidth={1.5} className="size-4" /> Progreso
         </Link>
         <span className="label">Escaneo corporal · nivel 1</span>
         <h1 className="text-4xl">Medidas</h1>
         <p className="max-w-prose text-text-2">
-          Peso y circunferencias con cinta métrica. Con cuello y cintura (y cadera en mujeres) calculamos tu % de grasa con la
-          fórmula de la Marina de EE.UU. Es una estimación: compárala contra ti mismo, no contra otros.
+          Peso y circunferencias con cinta métrica. Con cuello y cintura (y cadera en mujeres)
+          calculamos tu % de grasa con la fórmula de la Marina de EE.UU. Es una estimación:
+          compárala contra ti mismo, no contra otros.
         </p>
         <Link href="/progreso/inbody" className="text-sm text-text-2 underline underline-offset-4">
           ¿Tienes un ticket de InBody, bioimpedancia o DEXA? Cárgalo aquí
@@ -56,28 +76,50 @@ export default async function MeasurementsPage() {
 
       <section className="grid grid-cols-2 gap-4">
         <Card className="flex flex-col gap-2">
-          <Metric label="Tendencia de peso" value={trendNow !== null ? n(trendNow) : '—'} unit="kg" />
+          <Metric
+            label="Tendencia de peso"
+            value={trendNow !== null ? weightNumber(trendNow, unit) : '—'}
+            unit={unit}
+          />
           {series.trendChange4w !== null ? (
             <span className="text-sm text-text-3">
-              4 semanas <Delta value={series.trendChange4w} unit=" kg" invert={profile?.goal === 'fat_loss'} />
+              4 semanas{' '}
+              <Delta
+                value={series.trendChange4w !== null ? kgToUnit(series.trendChange4w, unit) : null}
+                unit={` ${unit}`}
+                invert={profile?.goal === 'fat_loss'}
+              />
             </span>
           ) : null}
         </Card>
         <Card className="flex flex-col gap-2">
-          <Metric label="Grasa corporal" value={latest.bodyFatPct !== null ? n(latest.bodyFatPct) : '—'} unit="%" />
-          {latest.bodyFatMethod ? <span className="text-sm text-text-3">{METHOD_LABELS[latest.bodyFatMethod] ?? latest.bodyFatMethod}</span> : null}
+          <Metric
+            label="Grasa corporal"
+            value={latest.bodyFatPct !== null ? n(latest.bodyFatPct) : '—'}
+            unit="%"
+          />
+          {latest.bodyFatMethod ? (
+            <span className="text-sm text-text-3">
+              {METHOD_LABELS[latest.bodyFatMethod] ?? latest.bodyFatMethod}
+            </span>
+          ) : null}
         </Card>
       </section>
 
       {series.raw.length >= 2 ? (
         <Card>
-          <WeightChart raw={series.raw} trend={series.trend} />
+          <WeightChart raw={series.raw} trend={series.trend} unit={unit} />
         </Card>
       ) : null}
 
       <Card className="flex flex-col gap-5">
         <h2 className="text-xl">Nueva medición</h2>
-        <MeasurementForm today={localDateString()} sex={(profile?.sex as 'male' | 'female' | null) ?? null} last={last} />
+        <MeasurementForm
+          today={localDateString()}
+          sex={(profile?.sex as 'male' | 'female' | null) ?? null}
+          last={last}
+          unit={unit}
+        />
       </Card>
 
       {rows.length > 0 ? (
@@ -92,25 +134,35 @@ export default async function MeasurementsPage() {
                   <span className="flex flex-wrap items-center gap-2">
                     <span>{formatShortDate(new Date(`${r.measuredAt}T12:00:00Z`))}</span>
                     {r.approximate ? <Chip tone="down">Aproximado</Chip> : null}
-                    {r.source !== 'manual' ? <Chip>{r.source === 'checkin' ? 'Revisión' : r.source}</Chip> : null}
+                    {r.source !== 'manual' ? (
+                      <Chip>{r.source === 'checkin' ? 'Revisión' : r.source}</Chip>
+                    ) : null}
                   </span>
                   <span className="text-sm text-text-3 tnum">
                     {[
-                      r.weightKg !== null ? `${n(r.weightKg)} kg` : null,
+                      r.weightKg !== null ? `${weightNumber(r.weightKg, unit)} ${unit}` : null,
                       r.waistCm !== null ? `cintura ${n(r.waistCm)}` : null,
                       r.neckCm !== null ? `cuello ${n(r.neckCm)}` : null,
                       r.hipCm !== null ? `cadera ${n(r.hipCm)}` : null,
                       r.armCm !== null ? `brazo ${n(r.armCm)}` : null,
                       r.thighCm !== null ? `muslo ${n(r.thighCm)}` : null,
-                      r.bodyFatPct !== null ? `${n(r.bodyFatPct)}% grasa (${METHOD_LABELS[r.bodyFatMethod ?? 'manual'] ?? ''})` : null,
-                      r.leanMassKg !== null ? `magra ${n(r.leanMassKg)} kg` : null,
+                      r.bodyFatPct !== null
+                        ? `${n(r.bodyFatPct)}% grasa (${METHOD_LABELS[r.bodyFatMethod ?? 'manual'] ?? ''})`
+                        : null,
+                      r.leanMassKg !== null
+                        ? `magra ${weightNumber(r.leanMassKg, unit)} ${unit}`
+                        : null,
                       r.bmrMeasured !== null ? `TMB ${r.bmrMeasured} kcal` : null,
                     ]
                       .filter(Boolean)
                       .join(' · ')}
                   </span>
                 </div>
-                <DeleteButton action={deleteMeasurementAction.bind(null, r.id)} label="Borrar medición" confirm="¿Borrar esta medición?" />
+                <DeleteButton
+                  action={deleteMeasurementAction.bind(null, r.id)}
+                  label="Borrar medición"
+                  confirm="¿Borrar esta medición?"
+                />
               </li>
             ))}
           </ul>

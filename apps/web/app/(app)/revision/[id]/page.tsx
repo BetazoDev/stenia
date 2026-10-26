@@ -1,4 +1,11 @@
-import { ADJUSTMENT_KIND_LABELS_ES, CHECKIN_TYPE_LABELS_ES, type CheckinType } from '@stenia/core';
+import {
+  ADJUSTMENT_KIND_LABELS_ES,
+  CHECKIN_TYPE_LABELS_ES,
+  formatWeight,
+  weightUnitFrom,
+  type CheckinType,
+  type WeightUnit,
+} from '@stenia/core';
 import { ArrowLeft, Check, X } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -18,13 +25,20 @@ import { formatShortDate } from '@/lib/time';
 
 export const metadata: Metadata = { title: 'Revisión' };
 
-function MetricsSummary({ m }: { m: Partial<CheckinMetrics> }) {
+function MetricsSummary({ m, unit }: { m: Partial<CheckinMetrics>; unit: WeightUnit }) {
   const items = [
-    m.weight?.trend ? { label: 'Peso (tendencia)', value: `${m.weight.trend.toLocaleString('es-MX')} kg` } : null,
-    m.weight?.slopePctPerWeek !== null && m.weight?.slopePctPerWeek !== undefined
-      ? { label: 'Cambio semanal', value: `${m.weight.slopePctPerWeek > 0 ? '+' : ''}${m.weight.slopePctPerWeek.toLocaleString('es-MX')}%` }
+    m.weight?.trend
+      ? { label: 'Peso (tendencia)', value: formatWeight(m.weight.trend, unit) }
       : null,
-    m.adherence && m.adherence.avgPct !== null ? { label: 'Adherencia', value: `${Math.round(m.adherence.avgPct * 100)}%` } : null,
+    m.weight?.slopePctPerWeek !== null && m.weight?.slopePctPerWeek !== undefined
+      ? {
+          label: 'Cambio semanal',
+          value: `${m.weight.slopePctPerWeek > 0 ? '+' : ''}${m.weight.slopePctPerWeek.toLocaleString('es-MX')}%`,
+        }
+      : null,
+    m.adherence && m.adherence.avgPct !== null
+      ? { label: 'Adherencia', value: `${Math.round(m.adherence.avgPct * 100)}%` }
+      : null,
     m.sessions ? { label: 'Sesiones (14 días)', value: String(m.sessions.count14d) } : null,
     m.sessions?.avgEffort ? { label: 'Esfuerzo medio', value: `${m.sessions.avgEffort}/10` } : null,
     m.records14d !== undefined ? { label: 'Récords (14 días)', value: String(m.records14d) } : null,
@@ -45,28 +59,46 @@ function MetricsSummary({ m }: { m: Partial<CheckinMetrics> }) {
 export default async function CheckinPage({ params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireSession();
   const { id } = await params;
-  const [row, profile, weights] = await Promise.all([getCheckin(user.id, id), getProfile(user.id), weightSeries(user.id)]);
+  const [row, profile, weights] = await Promise.all([
+    getCheckin(user.id, id),
+    getProfile(user.id),
+    weightSeries(user.id),
+  ]);
   if (!row) notFound();
   const type = row.type as CheckinType;
   const closed = Boolean(row.completedAt || row.dismissedAt);
   const proposals = row.proposedChanges as StoredProposal[];
-  const metrics = row.metrics as Partial<CheckinMetrics> & { generator?: 'llm' | 'rules'; aiMessage?: string | null };
-  const decision = row.decision as { accepted?: StoredProposal[]; rejected?: StoredProposal[]; version?: number | null };
+  const metrics = row.metrics as Partial<CheckinMetrics> & {
+    generator?: 'llm' | 'rules';
+    aiMessage?: string | null;
+  };
+  const decision = row.decision as {
+    accepted?: StoredProposal[];
+    rejected?: StoredProposal[];
+    version?: number | null;
+  };
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/revision" className="flex items-center gap-2 text-sm text-text-2 hover:text-text">
+        <Link
+          href="/revision"
+          className="flex items-center gap-2 text-sm text-text-2 hover:text-text"
+        >
           <ArrowLeft strokeWidth={1.5} className="size-4" /> Revisiones
         </Link>
         <span className="label">{formatShortDate(new Date(`${row.scheduledFor}T12:00:00Z`))}</span>
         <h1 className="text-4xl">{CHECKIN_TYPE_LABELS_ES[type]}</h1>
-        {row.trigger ? <p className="text-text-2">Motivo: {TRIGGER_LABELS_ES[row.trigger as EarlyTrigger] ?? row.trigger}</p> : null}
+        {row.trigger ? (
+          <p className="text-text-2">
+            Motivo: {TRIGGER_LABELS_ES[row.trigger as EarlyTrigger] ?? row.trigger}
+          </p>
+        ) : null}
       </header>
 
       {row.aiSummary ? (
         <Card>
-          <MetricsSummary m={metrics} />
+          <MetricsSummary m={metrics} unit={weightUnitFrom(user.units)} />
         </Card>
       ) : null}
 
@@ -81,9 +113,16 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
           ) : null}
           {(decision.accepted?.length ?? 0) + (decision.rejected?.length ?? 0) > 0 ? (
             <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
-              {[...(decision.accepted ?? []).map((a) => ({ a, ok: true })), ...(decision.rejected ?? []).map((a) => ({ a, ok: false }))].map(({ a, ok }, i) => (
+              {[
+                ...(decision.accepted ?? []).map((a) => ({ a, ok: true })),
+                ...(decision.rejected ?? []).map((a) => ({ a, ok: false })),
+              ].map(({ a, ok }, i) => (
                 <li key={i} className="flex items-start gap-3 px-4 py-3">
-                  {ok ? <Check strokeWidth={1.5} className="mt-0.5 size-4 text-up" /> : <X strokeWidth={1.5} className="mt-0.5 size-4 text-text-3" />}
+                  {ok ? (
+                    <Check strokeWidth={1.5} className="mt-0.5 size-4 text-up" />
+                  ) : (
+                    <X strokeWidth={1.5} className="mt-0.5 size-4 text-text-3" />
+                  )}
                   <span className="flex flex-col gap-1">
                     <span className={ok ? '' : 'text-text-3 line-through'}>{a.description}</span>
                     <Chip className="self-start">{ADJUSTMENT_KIND_LABELS_ES[a.kind]}</Chip>
@@ -106,8 +145,18 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
             trigger={row.trigger}
             sex={(profile?.sex as 'male' | 'female' | null) ?? null}
             weightAvg7d={weights.avg7d}
+            unit={weightUnitFrom(user.units)}
             lastWeight={weights.raw[weights.raw.length - 1]?.value ?? null}
-            initial={row.aiSummary ? { summary: row.aiSummary, proposals, generator: metrics.generator ?? 'rules', aiMessage: metrics.aiMessage ?? null } : null}
+            initial={
+              row.aiSummary
+                ? {
+                    summary: row.aiSummary,
+                    proposals,
+                    generator: metrics.generator ?? 'rules',
+                    aiMessage: metrics.aiMessage ?? null,
+                  }
+                : null
+            }
           />
           {type === 'early' && !row.aiSummary ? (
             <form action={dismissCheckinAction.bind(null, row.id)}>

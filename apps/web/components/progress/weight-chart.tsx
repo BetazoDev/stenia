@@ -1,13 +1,41 @@
 'use client';
 
-import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts';
+import { kgToUnit, type WeightUnit } from '@stenia/core';
+import {
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Scatter,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 const AXIS = { stroke: 'rgba(255,255,255,0.5)', fontSize: 12 } as const;
-const short = (iso: string) => new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T12:00:00Z`)).replace('.', '');
+const short = (iso: string) =>
+  new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${iso}T12:00:00Z`))
+    .replace('.', '');
 
 /** Pesajes (puntos) y tendencia suavizada con media móvil exponencial (línea). */
-export function WeightChart({ raw, trend }: { raw: { date: string; value: number }[]; trend: { date: string; value: number }[] }) {
-  const data = raw.map((r, i) => ({ label: short(r.date), weight: r.value, trend: trend[i]?.value ?? null }));
+export function WeightChart({
+  raw,
+  trend,
+  unit = 'kg',
+}: {
+  raw: { date: string; value: number }[];
+  trend: { date: string; value: number }[];
+  unit?: WeightUnit;
+}) {
+  const data = raw.map((r, i) => {
+    const t = trend[i]?.value;
+    return {
+      label: short(r.date),
+      weight: kgToUnit(r.value, unit),
+      trend: t === undefined ? null : kgToUnit(t, unit),
+    };
+  });
   return (
     <figure className="flex flex-col gap-3">
       <figcaption className="flex flex-wrap items-center gap-4 text-sm text-text-2">
@@ -23,13 +51,37 @@ export function WeightChart({ raw, trend }: { raw: { date: string; value: number
           <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
             <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} minTickGap={16} />
-            <YAxis tick={AXIS} axisLine={false} tickLine={false} domain={['dataMin - 1', 'dataMax + 1']} width={48} />
+            <YAxis
+              tick={AXIS}
+              axisLine={false}
+              tickLine={false}
+              domain={['dataMin - 1', 'dataMax + 1']}
+              width={48}
+            />
             <Tooltip
-              contentStyle={{ background: '#161616', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, color: '#fff' }}
+              contentStyle={{
+                background: '#161616',
+                border: '1px solid rgba(255,255,255,0.16)',
+                borderRadius: 10,
+                color: '#fff',
+              }}
               labelStyle={{ color: 'rgba(255,255,255,0.72)' }}
             />
-            <Scatter dataKey="weight" name="Pesaje (kg)" fill="rgba(255,255,255,0.5)" isAnimationActive={false} />
-            <Line type="monotone" dataKey="trend" name="Tendencia (kg)" stroke="#ffffff" strokeWidth={1.75} dot={false} isAnimationActive={false} />
+            <Scatter
+              dataKey="weight"
+              name={`Pesaje (${unit})`}
+              fill="rgba(255,255,255,0.5)"
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="trend"
+              name={`Tendencia (${unit})`}
+              stroke="#ffffff"
+              strokeWidth={1.75}
+              dot={false}
+              isAnimationActive={false}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

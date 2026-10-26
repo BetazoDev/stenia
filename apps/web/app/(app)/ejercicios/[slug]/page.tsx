@@ -1,4 +1,4 @@
-import type { MuscleGroup } from '@stenia/core';
+import { weightUnitFrom, type MuscleGroup } from '@stenia/core';
 import { exercise } from '@stenia/db';
 import { eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
@@ -24,26 +24,47 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const [row] = await getDb().select({ name: exercise.nameEs }).from(exercise).where(eq(exercise.slug, slug)).limit(1);
+  const [row] = await getDb()
+    .select({ name: exercise.nameEs })
+    .from(exercise)
+    .where(eq(exercise.slug, slug))
+    .limit(1);
   return { title: row?.name ?? 'Ejercicio' };
 }
 
 const SOURCE_LABELS: Record<string, { label: string; url: string; license: string }> = {
-  repdb: { label: 'Exercise data by RepDB (repdb.co)', url: 'https://repdb.co', license: 'RepDB Free · atribución obligatoria' },
-  'free-exercise-db': { label: 'free-exercise-db', url: 'https://github.com/yuhonas/free-exercise-db', license: 'Unlicense (dominio público)' },
-  calisthenics: { label: 'Martjn/calisthenics_exercises', url: 'https://huggingface.co/datasets/Martjn/calisthenics_exercises', license: 'Apache-2.0' },
+  repdb: {
+    label: 'Exercise data by RepDB (repdb.co)',
+    url: 'https://repdb.co',
+    license: 'RepDB Free · atribución obligatoria',
+  },
+  'free-exercise-db': {
+    label: 'free-exercise-db',
+    url: 'https://github.com/yuhonas/free-exercise-db',
+    license: 'Unlicense (dominio público)',
+  },
+  calisthenics: {
+    label: 'Martjn/calisthenics_exercises',
+    url: 'https://huggingface.co/datasets/Martjn/calisthenics_exercises',
+    license: 'Apache-2.0',
+  },
 };
 
 export default async function ExerciseDetailPage({ params }: Props) {
   const { user } = await requireSession();
   const { slug } = await params;
-  const [detail, status] = await Promise.all([getExerciseDetail(user.id, slug), aiStatus('exercise_tip', user.id)]);
+  const [detail, status] = await Promise.all([
+    getExerciseDetail(user.id, slug, weightUnitFrom(user.units)),
+    aiStatus('exercise_tip', user.id),
+  ]);
   if (!detail) notFound();
   const { exercise: ex, media } = detail;
   const steps = ex.instructionsEs.length > 0 ? ex.instructionsEs : ex.instructionsEn;
   const translated = ex.instructionsEs.length > 0;
   const source = SOURCE_LABELS[ex.source];
-  const intensity = Object.fromEntries(ex.primaryMuscles.map((m) => [m, 1])) as Partial<Record<MuscleGroup, number>>;
+  const intensity = Object.fromEntries(ex.primaryMuscles.map((m) => [m, 1])) as Partial<
+    Record<MuscleGroup, number>
+  >;
   const secondaryMuscles = ex.secondaryMuscles.filter((m) => !ex.primaryMuscles.includes(m));
 
   return (
@@ -64,7 +85,13 @@ export default async function ExerciseDetailPage({ params }: Props) {
 
       <div className="grid gap-6 md:grid-cols-2">
         <ViewTransition name={`exercise-${ex.id}`}>
-          <ExerciseMedia start={media.start} end={media.end} main={media.main} alt={ex.nameEs} size="large" />
+          <ExerciseMedia
+            start={media.start}
+            end={media.end}
+            main={media.main}
+            alt={ex.nameEs}
+            size="large"
+          />
         </ViewTransition>
         <div className="flex flex-col gap-4">
           <MuscleMap intensity={intensity} secondary={secondaryMuscles as MuscleGroup[]} />
@@ -100,11 +127,17 @@ export default async function ExerciseDetailPage({ params }: Props) {
       {steps.length > 0 ? (
         <section className="flex flex-col gap-3">
           <h2 className="text-2xl">Cómo se hace</h2>
-          {!translated ? <p className="text-sm text-text-3">Instrucciones en inglés: la traducción está pendiente de revisión.</p> : null}
+          {!translated ? (
+            <p className="text-sm text-text-3">
+              Instrucciones en inglés: la traducción está pendiente de revisión.
+            </p>
+          ) : null}
           <ol className="flex flex-col gap-3">
             {steps.map((s, i) => (
               <li key={i} className="flex gap-4">
-                <span className="label w-6 shrink-0 pt-1 tnum">{String(i + 1).padStart(2, '0')}</span>
+                <span className="label w-6 shrink-0 pt-1 tnum">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
                 <p className="text-text-2">{s}</p>
               </li>
             ))}
@@ -145,15 +178,27 @@ export default async function ExerciseDetailPage({ params }: Props) {
           <p className="text-text-3">Aún no lo has registrado.</p>
         ) : (
           <Card className="grid grid-cols-2 gap-6">
-            <Metric label="Mejor serie" value={<span className="text-2xl">{detail.history.bestText ?? '—'}</span>} />
-            <Metric label="1RM estimado" value={detail.history.bestE1rm ?? '—'} unit={detail.history.bestE1rm ? 'kg' : undefined} />
+            <Metric
+              label="Mejor serie"
+              value={<span className="text-2xl">{detail.history.bestText ?? '—'}</span>}
+            />
+            <Metric
+              label="1RM estimado"
+              value={detail.history.bestE1rm ?? '—'}
+              unit={detail.history.bestE1rm ? 'kg' : undefined}
+            />
             {detail.history.last ? (
               <div className="col-span-2 flex flex-col gap-1">
-                <span className="label">Última vez · {formatShortDate(detail.history.last.date)}</span>
+                <span className="label">
+                  Última vez · {formatShortDate(detail.history.last.date)}
+                </span>
                 <p className="text-text-2 tnum">{detail.history.last.sets.join(' · ')}</p>
               </div>
             ) : null}
-            <Link href={`/progreso/ejercicio/${ex.slug}`} className="col-span-2 text-sm text-text-2 underline underline-offset-4">
+            <Link
+              href={`/progreso/ejercicio/${ex.slug}`}
+              className="col-span-2 text-sm text-text-2 underline underline-offset-4"
+            >
               Ver gráficas de progreso
             </Link>
           </Card>
@@ -166,7 +211,10 @@ export default async function ExerciseDetailPage({ params }: Props) {
           <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {[
               { label: 'Anterior', item: detail.ladder.previous },
-              { label: 'Actual', item: { id: ex.id, slug: ex.slug, name: ex.nameEs, threshold: null } },
+              {
+                label: 'Actual',
+                item: { id: ex.id, slug: ex.slug, name: ex.nameEs, threshold: null },
+              },
               { label: 'Siguiente', item: detail.ladder.next },
             ].map(({ label, item }) => (
               <li key={label} className="rounded-card border border-border p-4">
@@ -175,7 +223,10 @@ export default async function ExerciseDetailPage({ params }: Props) {
                   label === 'Actual' ? (
                     <p className="mt-1">{item.name}</p>
                   ) : (
-                    <Link href={`/ejercicios/${item.slug}`} className="mt-1 block underline-offset-4 hover:underline">
+                    <Link
+                      href={`/ejercicios/${item.slug}`}
+                      className="mt-1 block underline-offset-4 hover:underline"
+                    >
                       {item.name}
                     </Link>
                   )
@@ -184,7 +235,9 @@ export default async function ExerciseDetailPage({ params }: Props) {
                 )}
                 {label === 'Siguiente' && detail.ladder.next?.threshold ? (
                   <p className="mt-1 text-sm text-text-3">
-                    Umbral: {detail.ladder.next.threshold.value} {detail.ladder.next.threshold.kind === 'reps' ? 'repeticiones' : 's'} en {detail.ladder.next.threshold.sessions} sesiones seguidas
+                    Umbral: {detail.ladder.next.threshold.value}{' '}
+                    {detail.ladder.next.threshold.kind === 'reps' ? 'repeticiones' : 's'} en{' '}
+                    {detail.ladder.next.threshold.sessions} sesiones seguidas
                   </p>
                 ) : null}
               </li>
@@ -216,7 +269,10 @@ export default async function ExerciseDetailPage({ params }: Props) {
             <ul className="flex flex-col gap-2">
               {detail.alternatives.map((a) => (
                 <li key={a.id}>
-                  <Link href={`/ejercicios/${a.slug}`} className="underline-offset-4 hover:underline">
+                  <Link
+                    href={`/ejercicios/${a.slug}`}
+                    className="underline-offset-4 hover:underline"
+                  >
                     {a.nameEs}
                   </Link>
                 </li>
@@ -226,13 +282,20 @@ export default async function ExerciseDetailPage({ params }: Props) {
         </Card>
       </section>
 
-      {isAdmin(user) ? <ExerciseAdminTools exerciseId={ex.id} videoId={ex.videoId} reviewed={ex.reviewed} /> : null}
+      {isAdmin(user) ? (
+        <ExerciseAdminTools exerciseId={ex.id} videoId={ex.videoId} reviewed={ex.reviewed} />
+      ) : null}
 
       <footer className="border-t border-border pt-4 text-sm text-text-3">
         {source ? (
           <p>
             Datos e imágenes:{' '}
-            <a href={source.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-4"
+            >
               {source.label}
             </a>{' '}
             · {source.license}
@@ -240,7 +303,12 @@ export default async function ExerciseDetailPage({ params }: Props) {
               <>
                 {' '}
                 · Imagen:{' '}
-                <a href={media.attributionUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                <a
+                  href={media.attributionUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-4"
+                >
                   {media.source}
                 </a>
               </>

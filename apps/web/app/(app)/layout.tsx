@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 
+import { weightUnitFrom } from '@stenia/core';
+
 import { AppNav } from '@/components/app-nav';
+import { WeightUnitSync } from '@/components/units/weight-unit';
 import { pendingCheckins } from '@/lib/checkins';
 import { requireSession } from '@/lib/session';
 
@@ -13,7 +16,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh md:pl-60">
       <AppNav userName={session.user.name} pendingCheckins={pending.length} />
-      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:px-10 md:pb-12 md:pt-10">{children}</main>
+      <WeightUnitSync unit={weightUnitFrom(session.user.units)} />
+      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:px-10 md:pb-12 md:pt-10">
+        {children}
+      </main>
     </div>
   );
 }
