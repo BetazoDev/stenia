@@ -6,6 +6,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { account, session, user, verification } from '@stenia/db';
+import { and, eq } from 'drizzle-orm';
 
 import { getDb } from './db';
 import { domainReceivesMail } from './email-domain';
@@ -35,6 +36,11 @@ function buildAuth() {
       autoSignIn: true,
     },
     socialProviders: google,
+    // Google verifica el correo: si ya existe una cuenta con contraseña con ese correo se vincula (sin esto Better Auth
+    // rechaza el vínculo porque aquí no se verifican correos). Ver `account.create.after`.
+    account: {
+      accountLinking: { enabled: true, trustedProviders: ['google'], requireLocalEmailVerified: false },
+    },
     user: {
       additionalFields: {
         role: { type: 'string', required: false, defaultValue: 'user', input: false },
@@ -52,6 +58,21 @@ function buildAuth() {
       },
     },
     databaseHooks: {
+      account: {
+        create: {
+          // Al vincular Google a una cuenta cuyo correo nunca se verificó, Google reemplaza la contraseña: así nadie
+          // que haya registrado ese correo antes con su propia contraseña conserva acceso (decisión del 2026-10-26).
+          after: async (created) => {
+            if (created.providerId !== 'google') return;
+            const db = getDb();
+            const [owner] = await db.select({ emailVerified: user.emailVerified }).from(user).where(eq(user.id, created.userId)).limit(1);
+            if (!owner || owner.emailVerified) return;
+            await db.delete(account).where(and(eq(account.userId, created.userId), eq(account.providerId, 'credential')));
+            await db.delete(session).where(eq(session.userId, created.userId));
+            await db.update(user).set({ emailVerified: true, updatedAt: new Date() }).where(eq(user.id, created.userId));
+          },
+        },
+      },
       user: {
         create: {
           before: async (data) => {

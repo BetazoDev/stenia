@@ -5,7 +5,8 @@ import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { describeAuthError, signIn } from '@/lib/auth-client';
 
-export function GoogleButton({ callbackURL, label }: { callbackURL: string; label: string }) {
+/** `errorCallbackURL`: a dónde vuelve si Google falla (con `?error=`), para mostrar el motivo en vez de nada. */
+export function GoogleButton({ callbackURL, errorCallbackURL, label }: { callbackURL: string; errorCallbackURL: string; label: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   return (
@@ -16,7 +17,7 @@ export function GoogleButton({ callbackURL, label }: { callbackURL: string; labe
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
-            const { error } = await signIn.social({ provider: 'google', callbackURL });
+            const { error } = await signIn.social({ provider: 'google', callbackURL, errorCallbackURL });
             if (error) setError(describeAuthError(error));
           })
         }

@@ -8,13 +8,13 @@ import { useState, useTransition, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, Label } from '@/components/ui/label';
-import { describeAuthError, signIn } from '@/lib/auth-client';
+import { describeAuthError, describeOAuthError, signIn } from '@/lib/auth-client';
 
 import { GoogleButton } from './google-button';
 
-export function LoginForm({ googleEnabled, next }: { googleEnabled: boolean; next: string }) {
+export function LoginForm({ googleEnabled, next, oauthError = null }: { googleEnabled: boolean; next: string; oauthError?: string | null }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(describeOAuthError(oauthError));
   const [pending, startTransition] = useTransition();
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -52,7 +52,7 @@ export function LoginForm({ googleEnabled, next }: { googleEnabled: boolean; nex
           {pending ? 'Entrando…' : 'Entrar'}
         </Button>
       </form>
-      {googleEnabled ? <GoogleButton callbackURL={next} label="Continuar con Google" /> : null}
+      {googleEnabled ? <GoogleButton callbackURL={next} errorCallbackURL="/login" label="Continuar con Google" /> : null}
       <p className="text-sm text-text-2">
         ¿Primera vez?{' '}
         <Link href="/registro" className="text-text underline underline-offset-4">

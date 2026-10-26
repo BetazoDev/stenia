@@ -31,3 +31,16 @@ export function describeAuthError(error: { code?: string; message?: string; stat
   if (error.code && ERROR_MESSAGES[error.code]) return ERROR_MESSAGES[error.code] as string;
   return error.message ?? 'Algo salió mal. Inténtalo de nuevo.';
 }
+
+const OAUTH_ERRORS: Record<string, string> = {
+  account_not_linked: 'Ese correo ya tiene una cuenta en Stenia y no se pudo vincular con Google. Inténtalo de nuevo.',
+  access_denied: 'Cancelaste el inicio con Google.',
+  state_mismatch: 'Se interrumpió el inicio con Google. Vuelve a intentarlo desde esta pantalla.',
+  please_restart_the_process: 'Se interrumpió el inicio con Google. Vuelve a intentarlo desde esta pantalla.',
+};
+
+/** Mensaje para el `?error=` con el que Better Auth regresa cuando falla el inicio con Google. */
+export function describeOAuthError(code: string | null | undefined): string | null {
+  if (!code) return null;
+  return OAUTH_ERRORS[code] ?? 'No se pudo entrar con Google. Inténtalo de nuevo.';
+}

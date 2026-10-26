@@ -332,3 +332,13 @@ Puerta de la Fase 0 pendiente solo del respaldo verificado: el usuario pospone C
 - **Cuenta dueña de la IA:** el primer correo de `ADMIN_EMAILS`; otros admins usan el perfil de las demás cuentas.
 - **Generación resistente a cortes.** Rutina y plan de comidas siguen en el servidor aunque Safari corte la petición
   al bloquear el teléfono («Load failed»); la respuesta manda un latido cada 10 s.
+
+## 2026-10-26 · Vincular Google a cuentas con contraseña
+
+- Better Auth no vincula Google a una cuenta existente si el correo local no está verificado (aquí nunca se verifica
+  porque no se envían correos), así que «Continuar con Google» regresaba al login sin aviso. Ahora Google es proveedor
+  de confianza con `requireLocalEmailVerified: false`.
+- Por decisión del usuario, al vincular Google a una cuenta no verificada se borra la contraseña, se cierran sus
+  sesiones y el correo queda verificado: quien hubiera registrado ese correo antes con su propia contraseña pierde el
+  acceso. Desde entonces esa persona entra con Google.
+- Si el inicio con Google falla, Better Auth regresa a /login o /registro con `?error=` y la pantalla lo explica.

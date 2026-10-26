@@ -8,13 +8,13 @@ import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldHint, Label } from '@/components/ui/label';
-import { describeAuthError, signUp } from '@/lib/auth-client';
+import { describeAuthError, describeOAuthError, signUp } from '@/lib/auth-client';
 
 import { GoogleButton } from './google-button';
 
-export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function RegisterForm({ googleEnabled, oauthError = null }: { googleEnabled: boolean; oauthError?: string | null }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(describeOAuthError(oauthError));
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -101,7 +101,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
           {pending ? 'Creando cuenta…' : 'Crear cuenta'}
         </Button>
       </form>
-      {googleEnabled ? <GoogleButton callbackURL="/hoy" label="Registrarme con Google" /> : null}
+      {googleEnabled ? <GoogleButton callbackURL="/hoy" errorCallbackURL="/registro" label="Registrarme con Google" /> : null}
       <p className="text-sm text-text-2">
         ¿Ya tienes cuenta?{' '}
         <Link href="/login" className="text-text underline underline-offset-4">

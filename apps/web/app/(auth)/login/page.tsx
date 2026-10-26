@@ -5,10 +5,10 @@ import { hasGoogleProvider } from '@/lib/auth';
 
 export const metadata: Metadata = { title: 'Entrar' };
 
-type Props = { searchParams: Promise<{ next?: string }> };
+type Props = { searchParams: Promise<{ next?: string; error?: string }> };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/hoy';
-  return <LoginForm googleEnabled={hasGoogleProvider()} next={safeNext} />;
+  return <LoginForm googleEnabled={hasGoogleProvider()} next={safeNext} oauthError={error ?? null} />;
 }
