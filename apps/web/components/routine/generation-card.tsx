@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { isNetworkError } from '@/lib/network-error';
 import { cn } from '@/lib/utils';
 
 type Event = { stage: string; message: string; routineId?: string; generator?: 'llm' | 'template' };
@@ -17,7 +18,16 @@ const STAGES = [
   { key: 'done', label: 'Listo' },
 ] as const;
 
-const ORDER: Record<string, number> = { profile: 0, catalog: 0, choosing: 1, validating: 2, retry: 2, fallback: 2, saving: 3, done: 4 };
+const ORDER: Record<string, number> = {
+  profile: 0,
+  catalog: 0,
+  choosing: 1,
+  validating: 2,
+  retry: 2,
+  fallback: 2,
+  saving: 3,
+  done: 4,
+};
 
 /** Tarjeta de generación con estados en vivo (motivo de la sección 15 del PRD). */
 export function GenerationCard() {
@@ -26,10 +36,12 @@ export function GenerationCard() {
   const [detail, setDetail] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [generator, setGenerator] = useState<'llm' | 'template' | null>(null);
+  const [lost, setLost] = useState(false);
   const started = useRef(false);
 
   const run = useCallback(async () => {
     setError(null);
+    setLost(false);
     setProgress(0);
     setDetail('');
     try {
@@ -47,6 +59,7 @@ export function GenerationCard() {
         for (const line of lines) {
           if (!line.trim()) continue;
           const event = JSON.parse(line) as Event;
+          if (event.stage === 'ping') continue;
           if (event.stage === 'error') {
             setError(event.message);
             return;
@@ -63,7 +76,13 @@ export function GenerationCard() {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error de red al generar.');
+      if (isNetworkError(e)) {
+        // La rutina se sigue generando en el servidor; se puede ver en un momento.
+        setLost(true);
+        setError(
+          'Se perdió la conexión (¿se bloqueó el teléfono?). Tu rutina se sigue armando: revísala en un minuto.',
+        );
+      } else setError(e instanceof Error ? e.message : 'Error de red al generar.');
     }
   }, [router]);
 
@@ -88,16 +107,33 @@ export function GenerationCard() {
                   state === 'pending' && 'border-border text-text-3',
                 )}
               >
-                {state === 'done' ? <Check strokeWidth={2.5} className="size-4" /> : state === 'active' ? <Loader2 strokeWidth={1.5} className="size-4 motion-safe:animate-spin" /> : <span className="label">{i + 1}</span>}
+                {state === 'done' ? (
+                  <Check strokeWidth={2.5} className="size-4" />
+                ) : state === 'active' ? (
+                  <Loader2 strokeWidth={1.5} className="size-4 motion-safe:animate-spin" />
+                ) : (
+                  <span className="label">{i + 1}</span>
+                )}
               </span>
-              <span className={cn('font-display text-2xl tracking-display', state === 'pending' && 'text-text-3')}>{s.label}</span>
+              <span
+                className={cn(
+                  'font-display text-2xl tracking-display',
+                  state === 'pending' && 'text-text-3',
+                )}
+              >
+                {s.label}
+              </span>
             </li>
           );
         })}
       </ol>
       {detail && !error ? <p className="text-sm text-text-3">{detail}</p> : null}
       {generator ? (
-        <p className="text-sm text-text-2">{generator === 'llm' ? 'Rutina elegida por la IA y validada por las reglas.' : 'Rutina armada con la plantilla determinista (sin IA o tras fallar la validación).'}</p>
+        <p className="text-sm text-text-2">
+          {generator === 'llm'
+            ? 'Rutina elegida por la IA y validada por las reglas.'
+            : 'Rutina armada con la plantilla determinista (sin IA o tras fallar la validación).'}
+        </p>
       ) : null}
       {error ? (
         <div className="flex flex-col gap-3">
@@ -105,7 +141,11 @@ export function GenerationCard() {
             {error}
           </p>
           <div className="flex gap-3">
-            <Button onClick={() => void run()}>Reintentar</Button>
+            {lost ? (
+              <Button onClick={() => router.push('/rutina')}>Ver mi rutina</Button>
+            ) : (
+              <Button onClick={() => void run()}>Reintentar</Button>
+            )}
             <Button variant="secondary" onClick={() => router.push('/onboarding?resumen=1')}>
               Revisar respuestas
             </Button>

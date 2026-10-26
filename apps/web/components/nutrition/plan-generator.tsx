@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { isNetworkError } from '@/lib/network-error';
 import { cn } from '@/lib/utils';
 
 const STAGES = [
@@ -13,16 +14,31 @@ const STAGES = [
   { key: 'scaling', label: 'Ajustando porciones' },
   { key: 'done', label: 'Listo' },
 ] as const;
-const ORDER: Record<string, number> = { targets: 0, foods: 0, choosing: 1, fallback: 1, scaling: 2, saving: 3, done: 4 };
+const ORDER: Record<string, number> = {
+  targets: 0,
+  foods: 0,
+  choosing: 1,
+  fallback: 1,
+  scaling: 2,
+  saving: 3,
+  done: 4,
+};
 
 /** Genera el plan semanal mostrando el avance (NDJSON). */
-export function PlanGenerator({ label = 'Generar plan semanal', autoStart = false }: { label?: string; autoStart?: boolean }) {
+export function PlanGenerator({
+  label = 'Generar plan semanal',
+  autoStart = false,
+}: {
+  label?: string;
+  autoStart?: boolean;
+}) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [detail, setDetail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const auto = useRef(false);
 
   const run = useCallback(async () => {
@@ -45,6 +61,7 @@ export function PlanGenerator({ label = 'Generar plan semanal', autoStart = fals
         for (const line of lines) {
           if (!line.trim()) continue;
           const e = JSON.parse(line) as { stage: string; message: string };
+          if (e.stage === 'ping') continue;
           if (e.stage === 'error') {
             setError(e.message);
             continue;
@@ -56,11 +73,28 @@ export function PlanGenerator({ label = 'Generar plan semanal', autoStart = fals
       router.replace('/nutricion/plan');
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error de red.');
+      if (isNetworkError(e)) {
+        // El servidor sigue armando el plan aunque se haya cortado la conexión: se revisa solo cada pocos segundos.
+        setError(
+          'Se perdió la conexión (¿se bloqueó el teléfono?). El plan se sigue armando; esta pantalla se actualiza sola.',
+        );
+        setWaiting(true);
+      } else setError(e instanceof Error ? e.message : 'Error de red.');
     } finally {
       setRunning(false);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!waiting) return;
+    let tries = 0;
+    const t = window.setInterval(() => {
+      tries += 1;
+      router.refresh();
+      if (tries >= 24) window.clearInterval(t);
+    }, 8_000);
+    return () => window.clearInterval(t);
+  }, [waiting, router]);
 
   // Con ?generar=1 arranca solo (una vez, aun con el doble montaje de desarrollo).
   useEffect(() => {
@@ -82,13 +116,25 @@ export function PlanGenerator({ label = 'Generar plan semanal', autoStart = fals
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-border bg-card p-5" aria-live="polite">
+    <div
+      className="flex flex-col gap-4 rounded-card border border-border bg-card p-5"
+      aria-live="polite"
+    >
       <ol className="flex flex-col gap-3">
         {STAGES.map((s, i) => {
           const state = progress > i ? 'done' : progress === i && running ? 'active' : 'pending';
           return (
-            <li key={s.key} className={cn('flex items-center gap-3', state === 'pending' && 'text-text-3')}>
-              {state === 'done' ? <Check strokeWidth={1.5} className="size-5 text-up" /> : state === 'active' ? <Loader2 strokeWidth={1.5} className="size-5 animate-spin" /> : <span className="size-5" />}
+            <li
+              key={s.key}
+              className={cn('flex items-center gap-3', state === 'pending' && 'text-text-3')}
+            >
+              {state === 'done' ? (
+                <Check strokeWidth={1.5} className="size-5 text-up" />
+              ) : state === 'active' ? (
+                <Loader2 strokeWidth={1.5} className="size-5 animate-spin" />
+              ) : (
+                <span className="size-5" />
+              )}
               <span>{s.label}</span>
             </li>
           );
