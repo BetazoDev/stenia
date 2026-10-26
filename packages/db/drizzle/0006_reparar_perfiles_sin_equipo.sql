@@ -1,7 +1,8 @@
 -- Perfiles de equipamiento creados cuando la tabla equipment aún estaba vacía quedaron sin equipo: se rellenan
 -- con el equipo de su preajuste (mismas listas que apps/web/lib/gym-presets.ts). En una base nueva no hace nada.
-INSERT INTO "gym_profile_equipment" ("gym_profile_id", "equipment_id", "meta")
-SELECT gp."id", e."id",
+-- El id lo genera la app (sin default en la base): aquí se genera con gen_random_uuid().
+INSERT INTO "gym_profile_equipment" ("id", "gym_profile_id", "equipment_id", "meta")
+SELECT gen_random_uuid()::text, gp."id", e."id",
   CASE e."slug"
     WHEN 'dumbbells' THEN '{"dumbbellMinKg":2.5,"dumbbellMaxKg":40,"dumbbellStepKg":2.5}'::jsonb
     WHEN 'bands' THEN '{"bandResistances":["ligera","media","fuerte"]}'::jsonb

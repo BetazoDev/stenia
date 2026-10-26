@@ -21,7 +21,9 @@ try {
   await migrate(db, { migrationsFolder });
   console.info(`Migraciones aplicadas desde ${migrationsFolder}`);
 } catch (error) {
-  console.error('Error al aplicar migraciones:', error instanceof Error ? error.message : error);
+  // drizzle envuelve el error de Postgres: el motivo real está en `cause`.
+  const cause = error instanceof Error && error.cause instanceof Error ? ` · ${error.cause.message}` : '';
+  console.error('Error al aplicar migraciones:', `${error instanceof Error ? error.message.split('\n')[0].slice(0, 200) : error}${cause}`);
   process.exitCode = 1;
 }
 

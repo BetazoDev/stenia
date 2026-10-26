@@ -1,9 +1,11 @@
-import { sql } from 'drizzle-orm';
+import { readFileSync } from 'node:fs';
+
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { EQUIPMENT_SEED, seedEquipment } from './seed/equipment';
 import { createTestDb } from './testing';
-import { equipment, user } from './schema/index';
+import { equipment, gymProfile, gymProfileEquipment, user } from './schema/index';
 
 let ctx: Awaited<ReturnType<typeof createTestDb>>;
 
@@ -73,6 +75,20 @@ describe('migraciones', () => {
     await seedEquipment(ctx.db);
     const [fixed] = await ctx.db.select().from(equipment).where(sql`${equipment.slug} = ${first.slug}`);
     expect(fixed?.nameEs).toBe(first.nameEs);
+  });
+
+  it('la migración 0006 rellena un perfil de equipamiento vacío con su preajuste', async () => {
+    await seedEquipment(ctx.db);
+    const [owner] = await ctx.db.insert(user).values({ name: 'Perfil vacío', email: 'vacio@example.com' }).returning();
+    const [profile] = await ctx.db.insert(gymProfile).values({ userId: owner!.id, name: 'Casa', kind: 'home' }).returning();
+    const repair = readFileSync(new URL('../drizzle/0006_reparar_perfiles_sin_equipo.sql', import.meta.url), 'utf8');
+    await ctx.db.execute(sql.raw(repair));
+    const rows = await ctx.db.select().from(gymProfileEquipment).where(eq(gymProfileEquipment.gymProfileId, profile!.id));
+    expect(rows.length).toBeGreaterThan(0);
+    // Idempotente: un perfil que ya tiene equipo no se toca.
+    await ctx.db.execute(sql.raw(repair));
+    const again = await ctx.db.select().from(gymProfileEquipment).where(eq(gymProfileEquipment.gymProfileId, profile!.id));
+    expect(again).toHaveLength(rows.length);
   });
 
   it('asigna valores por defecto a un usuario nuevo', async () => {
